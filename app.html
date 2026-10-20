@@ -207,6 +207,7 @@ a{color:inherit}
     prospecto: ['Bot contestando', 'ok'],
     pausado: ['En pausa', 'espera'],
     humano: ['Te toca a ti', 'alerta'],
+    pide_info: ['Pide información', 'alerta'],
     conocido: ['Ignorado', 'suave']
   }
 
@@ -289,7 +290,7 @@ a{color:inherit}
       ${!estado.botActivo ? '<div class="aviso-estado"><span>El bot está apagado y no contesta a nadie.</span><button class="boton principal" data-bot="on">Encender</button></div>' : ''}
       ${pend.length
         ? `<section class="te-toca"><h2>${pend.length === 1 ? '1 persona te espera' : pend.length + ' personas te esperan'}</h2>
-            <p>El bot les pasó la conversación a ti.</p>
+            <p>${pend.some(c => c.estado === 'pide_info') ? 'Respóndeles tú o deja que el bot los atienda.' : 'El bot les pasó la conversación a ti.'}</p>
             ${pend.map(filaChat).join('')}</section>`
         : `<section class="tranquilo"><h2>Nadie te está esperando</h2>
             <div class="suave">${estado.botActivo ? 'El bot está atendiendo a los prospectos.' : 'Enciende el bot para que atienda a los prospectos.'}</div></section>`}
@@ -309,6 +310,7 @@ a{color:inherit}
     const filtros = [
       ['todos', 'Todos', () => true],
       ['humano', 'Te toca', c => c.estado === 'humano'],
+      ...(chats.some(c => c.estado === 'pide_info') ? [['pide_info', 'Pide info', c => c.estado === 'pide_info']] : []),
       ['prospecto', 'Bot', c => c.estado === 'prospecto'],
       ['pausado', 'En pausa', c => c.estado === 'pausado']
     ]
@@ -349,6 +351,7 @@ a{color:inherit}
     let avisoEstado = ''
     if (c.estado === 'prospecto') avisoEstado = `<div class="aviso-estado"><span><span class="punto ok" style="display:inline-block;margin-right:6px"></span>El bot está contestando</span><button class="boton" data-chat-accion="pausar">Pausar</button></div>`
     else if (c.estado === 'pausado') avisoEstado = `<div class="aviso-estado"><span>Bot en pausa${c.pausadoHasta ? ' hasta ' + esc(diaLargo(c.pausadoHasta).toLowerCase() === 'hoy' ? soloHora(c.pausadoHasta) : diaLargo(c.pausadoHasta) + ' ' + soloHora(c.pausadoHasta)) : ''}</span><button class="boton principal" data-chat-accion="activar">Que conteste el bot</button></div>`
+    else if (c.estado === 'pide_info') avisoEstado = `<div class="aviso-estado humano"><span><b>Pide información.</b> Ya era un chat tuyo, por eso el bot no le contestó.</span><button class="boton principal" data-chat-accion="activar">Que conteste el bot</button></div>`
     else if (c.estado === 'humano') avisoEstado = `<div class="aviso-estado humano"><span><b>Te toca a ti.</b> El bot ya no contesta aquí.</span><button class="boton" data-chat-accion="activar">Devolver al bot</button></div>`
     else avisoEstado = `<div class="aviso-estado"><span>El bot ignora este chat</span><button class="boton principal" data-chat-accion="activar">Que conteste el bot</button></div>`
 

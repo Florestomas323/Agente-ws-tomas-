@@ -89,7 +89,7 @@ Cada vez que guardas un cambio en GitHub, Railway se actualiza solo en un minuto
 ## Varios estados (zonas) y CRM por estado
 En `ajustes.json` → `"zonas"` defines cada estado o región:
 - `ciudades` y `estados` que cubre (la IA entiende también las ciudades de alrededor).
-- `palabrasAnuncio`: palabras que pones en el nombre o texto del anuncio (por ejemplo "Florida", "Orlando"). Si el anuncio las trae, el bot ya sabe de qué zona viene antes de preguntar.
+- `palabrasAnuncio`: palabras que el bot busca en el texto visible del anuncio y en el mensaje prellenado (por ejemplo "Florida" o un código como "(FL)"). El nombre interno de la campaña en el Administrador de anuncios NO llega por WhatsApp, así que la palabra debe estar en el título o texto del anuncio, o en el mensaje prellenado.
 - `zonaHoraria`: para que los horarios salgan en la hora local del cliente.
 - `atiende` y `avisarA`: quién va a la cita y su WhatsApp. Esa persona recibe los avisos de su zona; tú recibes todos.
 - `crmClaveVariable`: el nombre de la variable de Railway con la clave de integración de la cuenta de Royal Sales IA de esa zona.

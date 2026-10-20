@@ -149,6 +149,9 @@ export async function enviarComoTomas (jid, texto) {
   agregarAlHistorial(jid, 'tomas', limpio)
 }
 
+/** El bot contesta ya en un chat recién activado desde la app (si el cliente fue el último en escribir) */
+export function contestarAhora (jid) { manejador.contestarAhora(jid) }
+
 /** Desvincula este servidor de WhatsApp (para vincular otro número) */
 export async function desvincular () {
   try { await sock?.logout() } catch {}

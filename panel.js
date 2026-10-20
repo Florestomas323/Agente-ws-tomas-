@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DateTime } from 'luxon'
 import { config, ajustes } from './config.js'
-import { estadoWA, desvincular, enviarComoTomas } from './whatsapp.js'
+import { estadoWA, desvincular, enviarComoTomas, contestarAhora } from './whatsapp.js'
 import {
   listarChats, listarCitas, obtenerChat, crearOActualizarChat, botActivo, cambiarBotActivo
 } from './almacen.js'
@@ -61,7 +61,7 @@ function resumenChat (c) {
     id: c.id,
     nombre: c.nombre || '',
     telefono: c.telefono || '',
-    estado: c.estado,
+    estado: c.estado === 'conocido' && c.pideInfo ? 'pide_info' : c.estado,
     origen: c.origen || '',
     anuncio: c.anuncio || '',
     zona: c.zona || '',
@@ -74,8 +74,12 @@ function resumenChat (c) {
   }
 }
 
+/** Chats que se muestran en la app: los del bot y los que ya tenías pero pidieron información */
+const visible = (c) => c.estado !== 'conocido' || Boolean(c.pideInfo)
+
 function datosEstado () {
-  const chats = listarChats().filter(c => c.estado !== 'conocido')
+  const chats = listarChats().filter(visible)
+  const espera = (c) => c.estado === 'humano' || (c.estado === 'conocido' && c.pideInfo)
   const inicioHoy = DateTime.now().setZone(zona()).startOf('day').toMillis()
   const inicioSemana = DateTime.now().setZone(zona()).startOf('week').toMillis()
   const ahoraISO = DateTime.now().toISO()
@@ -97,9 +101,9 @@ function datosEstado () {
       prospectosSemana: chats.filter(c => (c.creado || 0) >= inicioSemana).length,
       citasSemana: citas.filter(c => (c.creada || 0) >= inicioSemana).length,
       citasProximas: citas.filter(c => c.fin > ahoraISO).length,
-      teToca: chats.filter(c => c.estado === 'humano').length
+      teToca: chats.filter(espera).length
     },
-    pendientes: chats.filter(c => c.estado === 'humano').slice(0, 10).map(resumenChat),
+    pendientes: chats.filter(espera).slice(0, 10).map(resumenChat),
     proximas: citas.filter(c => c.fin > ahoraISO).slice(0, 3)
   }
 }
@@ -168,7 +172,7 @@ export function iniciarPanel () {
       if (url.pathname === '/api/estado') return json(datosEstado())
 
       if (url.pathname === '/api/chats') {
-        return json({ chats: listarChats().filter(c => c.estado !== 'conocido').slice(0, 200).map(resumenChat) })
+        return json({ chats: listarChats().filter(visible).slice(0, 200).map(resumenChat) })
       }
 
       if (url.pathname === '/api/chat') {
@@ -187,9 +191,9 @@ export function iniciarPanel () {
         const existe = id && obtenerChat(id)
         if (accion === 'bot_on') cambiarBotActivo(true)
         else if (accion === 'bot_off') cambiarBotActivo(false)
-        else if (accion === 'activar' && existe) crearOActualizarChat(id, { estado: 'prospecto', pausadoHasta: null })
+        else if (accion === 'activar' && existe) { crearOActualizarChat(id, { estado: 'prospecto', pausadoHasta: null, pideInfo: null }); contestarAhora(id) }
         else if (accion === 'pausar' && existe) crearOActualizarChat(id, { estado: 'pausado', pausadoHasta: null })
-        else if (accion === 'ignorar' && existe) crearOActualizarChat(id, { estado: 'conocido' })
+        else if (accion === 'ignorar' && existe) crearOActualizarChat(id, { estado: 'conocido', pideInfo: null })
         else if (accion === 'desvincular') await desvincular()
         else return json({ error: 'accion_invalida' }, 400)
         return json({ ok: true })

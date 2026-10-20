@@ -73,10 +73,14 @@ function tieneFraseClave (texto) {
   return (ajustes.frasesClave || []).some(f => t.includes(f.toLowerCase()))
 }
 
-/** Campos del chat que salen del anuncio, incluida la zona si sus palabras la delatan */
-function datosAnuncio (anuncio) {
+/**
+ * Campos del chat que salen del anuncio, incluida la zona si sus palabras la delatan.
+ * Busca en el texto del anuncio y también en el primer mensaje (el mensaje prellenado del anuncio),
+ * porque el nombre interno de la campaña en el Administrador de anuncios no llega por WhatsApp.
+ */
+function datosAnuncio (anuncio, primerMensaje = '') {
   if (!anuncio.esAnuncio) return {}
-  const z = zonaDesdeAnuncio(anuncio.texto)
+  const z = zonaDesdeAnuncio(anuncio.texto + ' ' + primerMensaje)
   return {
     anuncio: anuncio.titulo || '',
     anuncioId: anuncio.id || '',
@@ -269,7 +273,7 @@ export function crearManejador (io) {
         ...base,
         estado: esProspecto ? 'prospecto' : 'conocido',
         origen: anuncio.esAnuncio ? 'anuncio' : (esProspecto ? (modo === 'campanas' ? 'frase clave' : modo) : ''),
-        ...datosAnuncio(anuncio)
+        ...datosAnuncio(anuncio, texto)
       })
       if (esProspecto) { console.log(`Nuevo prospecto ${jid} (${chat.origen})`); nuevoProspecto = true }
     } else {
@@ -277,7 +281,7 @@ export function crearManejador (io) {
       if (chat.estado === 'conocido' && (anuncio.esAnuncio || ajustes.modoRespuesta === 'todos')) {
         cambios.estado = 'prospecto'
         cambios.origen = anuncio.esAnuncio ? 'anuncio' : 'todos'
-        Object.assign(cambios, datosAnuncio(anuncio))
+        Object.assign(cambios, datosAnuncio(anuncio, texto))
         nuevoProspecto = true
       }
       if (chat.estado === 'pausado' && chat.pausadoHasta && Date.now() > chat.pausadoHasta) {
@@ -287,7 +291,26 @@ export function crearManejador (io) {
       chat = crearOActualizarChat(jid, cambios)
     }
 
-    if (chat.estado === 'conocido') return
+    if (chat.estado === 'conocido') {
+      // Un chat que ya tenías escribe una frase de interés: no se le contesta solo (puede ser un cliente),
+      // pero te aviso y queda en la app como "Pide información" para activarlo con un toque.
+      if (!tieneFraseClave(texto)) return
+      if (ajustes.frasesActivanChatsConocidos === true) {
+        chat = crearOActualizarChat(jid, { estado: 'prospecto', origen: 'frase clave', pideInfo: null })
+        nuevoProspecto = true
+      } else {
+        const yaAvisado = chat.pideInfo && Date.now() - chat.pideInfo < 6 * 3600_000
+        crearOActualizarChat(jid, { pideInfo: Date.now() })
+        agregarAlHistorial(jid, 'cliente', texto)
+        if (!yaAvisado) {
+          await avisarDueno(
+            `💬 *${chat.nombre || 'Un contacto'}* (chat que ya tenías) escribió: "${texto.slice(0, 120)}"\n📱 wa.me/${tel(chat, jid)}` +
+            `\nEl bot no le contestó porque ya era un chat tuyo. Si quieres que lo atienda, ábrelo en la app (aparece como "Pide información") y toca "Que conteste el bot".`
+          ).catch(e => console.error('Aviso pide info falló', e.message))
+        }
+        return
+      }
+    }
     agregarAlHistorial(jid, 'cliente', texto)
 
     if (nuevoProspecto) {
@@ -314,5 +337,12 @@ export function crearManejador (io) {
     if (n) console.log(`${n} chats existentes marcados como conocidos (el bot no les contestará)`)
   }
 
-  return { procesar, historialInicial, contestar }
+  /** Cuando activas un chat desde la app: si el último mensaje es del cliente, el bot contesta ya */
+  function contestarAhora (jid) {
+    const chat = obtenerChat(jid)
+    const ultimo = chat?.historial?.[chat.historial.length - 1]
+    if (chat?.estado === 'prospecto' && ultimo?.rol === 'cliente' && botActivo()) programarRespuesta(jid)
+  }
+
+  return { procesar, historialInicial, contestar, contestarAhora }
 }
