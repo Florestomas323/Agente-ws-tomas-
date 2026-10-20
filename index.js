@@ -9,7 +9,7 @@ if (!config.anthropicKey) faltan.push('ANTHROPIC_API_KEY')
 if (!config.panelClave) faltan.push('PANEL_CLAVE')
 if (!config.numeroWhatsApp) faltan.push('NUMERO_WHATSAPP')
 if (faltan.length) console.warn('⚠️ Faltan variables:', faltan.join(', '))
-if (!config.calendarioUrl) console.warn('ℹ️ Sin CALENDARIO_URL: el bot no verá tu Google Calendar, solo las citas que él mismo agende.')
+if (!config.calendarioUrl) console.warn('ℹ️ Sin CALENDARIO_URL: las citas no se crean en Google Calendar ni llevan enlace de Meet.')
 
 iniciarPanel()
 iniciarWhatsApp().catch(e => {

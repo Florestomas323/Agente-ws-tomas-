@@ -1,13 +1,15 @@
 // Envía el prospecto (y luego su cita) al CRM de su zona: una cuenta de Royal Sales IA por zona.
 // Usa la entrada de integración que Royal Sales IA ya tiene: POST /api/website/leads con la clave de la cuenta.
 // Si la misma persona se manda dos veces (mismo externalId), Royal Sales IA no la duplica: completa los datos.
+import { ajustes } from './config.js'
 import { nombreEstado } from './zonas.js'
 
 const urlBase = () => (process.env.ROYAL_SALES_URL || '').trim().replace(/\/+$/, '')
 
-/** Clave de integración de la zona (variable de Railway) o la general CRM_CLAVE */
+/** Clave de integración de la zona; sin zona (fuera de tus estados) usa la de crmClaveVariableSinZona; si no, CRM_CLAVE */
 export function claveCrm (zona) {
-  const porZona = zona?.crmClaveVariable ? process.env[zona.crmClaveVariable] : ''
+  const variable = zona ? zona.crmClaveVariable : ajustes.crmClaveVariableSinZona
+  const porZona = variable ? process.env[variable] : ''
   return (porZona || process.env.CRM_CLAVE || '').trim()
 }
 
@@ -33,7 +35,7 @@ export async function enviarAlCrm (chat, zona, extra = {}) {
     ...(chat.ciudad ? { ciudad: chat.ciudad } : {}),
     ...(chat.estadoUS ? { estado: nombreEstado(chat.estadoUS) } : {}),
     ...(chat.origen ? { origen: chat.origen } : {}),
-    ...(c ? { cita: extra.citaTexto || c.inicio, modalidad: c.modalidad === 'zoom' ? 'Zoom' : 'Presencial', direccion_cita: c.direccion || '', notas_cita: c.notas || '' } : {})
+    ...(c ? { cita: extra.citaTexto || c.inicio, modalidad: c.modalidad === 'meet' ? 'Google Meet' : 'Presencial', direccion_cita: c.direccion || '', notas_cita: c.notas || '' } : {})
   }
   const cuerpo = {
     name: (c?.nombre || chat.nombreReal || chat.nombre || 'Prospecto WhatsApp').slice(0, 120),
@@ -48,7 +50,7 @@ export async function enviarAlCrm (chat, zona, extra = {}) {
     ...(chat.anuncioUrl && /^https?:\/\//.test(chat.anuncioUrl) ? { adUrl: chat.anuncioUrl.slice(0, 2000) } : {}),
     ...(chat.ciudad ? { city: chat.ciudad.slice(0, 80) } : {}),
     ...(chat.estadoUS ? { state: chat.estadoUS } : {}),
-    ...(c ? { schedulePreference: `Cita agendada (${c.modalidad === 'zoom' ? 'Zoom' : 'presencial'}): ${extra.citaTexto || c.inicio}${c.direccion ? ' — ' + c.direccion : ''}`.slice(0, 240) } : {}),
+    ...(c ? { schedulePreference: `Cita agendada (${c.modalidad === 'meet' ? 'Google Meet' : 'presencial'}): ${extra.citaTexto || c.inicio}${c.direccion ? ' — ' + c.direccion : ''}`.slice(0, 240) } : {}),
     answers: Object.fromEntries(Object.entries(respuestas).map(([k, v]) => [k, String(v).slice(0, 500)]))
   }
 

@@ -94,6 +94,12 @@ export const zonaHorariaDe = (zona) => zona?.zonaHoraria || ajustes.zonaHoraria 
 export const horariosDe = (zona) => zona?.horarios || ajustes.horarios || {}
 export const quienAtiende = (zona) => zona?.atiende || 'Tomás'
 
+/** Grupos de WhatsApp (por nombre) que reciben los avisos de la zona */
+export function gruposDeZona (zona) {
+  const v = zona?.avisarGrupo
+  return (Array.isArray(v) ? v : (v ? [v] : [])).map(String).filter(Boolean)
+}
+
 /** Números (solo dígitos) a los que hay que avisar además de Tomás para esta zona. */
 export function numerosDeZona (zona) {
   const v = zona?.avisarA

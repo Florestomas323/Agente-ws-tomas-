@@ -17,7 +17,7 @@ export const config = {
   panelClave: env.PANEL_CLAVE || '',
   calendarioUrl: env.CALENDARIO_URL || '',          // URL del Apps Script (opcional)
   calendarioClave: env.CALENDARIO_CLAVE || '',
-  zoomEnlace: (env.ZOOM_LINK || '').trim(),          // tu sala personal de Zoom (opcional)
+  meetEnlace: (env.MEET_LINK || '').trim(),          // enlace fijo de Meet de respaldo (opcional; lo normal es uno por cita)
   carpetaDatos: env.DATA_DIR || path.join(aqui, 'datos'),
   puerto: Number(env.PORT || 3000)
 }

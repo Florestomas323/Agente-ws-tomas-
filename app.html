@@ -260,6 +260,14 @@ a{color:inherit}
       </span></a>`
   }
 
+  /** Estado de confirmación de la cita (recordatorio del día anterior) */
+  function estadoCita (c) {
+    if (c.confirmacion === 'confirmada') return ' · <span class="ok">Confirmada</span>'
+    if (c.recordatorio?.avisoSinRespuesta) return ' · <span class="alerta">No ha confirmado</span>'
+    if (c.recordatorio) return ' · <span class="espera">Recordatorio enviado</span>'
+    return ''
+  }
+
   function filaCita (c) {
     const d = new Date(c.inicio)
     // la cita se muestra en la hora local de su zona (si es de otro estado, se aclara)
@@ -271,13 +279,13 @@ a{color:inherit}
       <div class="cuerpo">
         <div class="linea1"><span style="display:flex;align-items:center;min-width:0"><span class="nombre">${esc(c.nombre)}</span>${c.zonaNombre ? `<span class="zona-tag">${esc(c.zonaNombre)}</span>` : ''}</span><span class="hora">${esc(f({ hour: 'numeric', minute: '2-digit' }))}${otraHora ? ' local' : ''}</span></div>
         ${c.atiende && c.atiende !== 'Tomás' ? `<div class="suave pequeno">Atiende ${esc(c.atiende)}</div>` : ''}
-        <div class="suave pequeno">${c.modalidad === 'zoom' ? '🎥 Por Zoom' : esc(c.direccion)}</div>
+        <div class="suave pequeno">${c.modalidad === 'meet' ? '📹 Google Meet' : esc(c.direccion)}${estadoCita(c)}</div>
         ${c.notas ? `<div class="suave pequeno">${esc(c.notas)}</div>` : ''}
         <div class="acciones">
           ${c.chatId ? `<a class="boton" href="#/chat/${encodeURIComponent(c.chatId)}">Ver chat</a>` : ''}
           ${c.telefono ? `<a class="boton" href="https://wa.me/${esc(c.telefono)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-          ${c.modalidad === 'zoom'
-            ? (c.zoomEnlace ? `<a class="boton" href="${esc(c.zoomEnlace)}" target="_blank" rel="noopener">Abrir Zoom</a>` : '')
+          ${c.modalidad === 'meet'
+            ? (c.meetEnlace ? `<a class="boton" href="${esc(c.meetEnlace)}" target="_blank" rel="noopener">Abrir Meet</a>` : '')
             : `<a class="boton" href="https://maps.apple.com/?q=${encodeURIComponent(c.direccion)}" target="_blank" rel="noopener">Cómo llegar</a>`}
         </div>
       </div></div>`

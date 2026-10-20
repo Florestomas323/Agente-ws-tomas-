@@ -1,6 +1,6 @@
 # Royal Cita IA — agente de citas por WhatsApp (Impact Enterprises)
 
-El bot se presenta como **Sofía**, la asistente virtual de Tomás. Su único objetivo es **agendar citas de 30 a 40 minutos**: primero presencial y, si no se puede, por Zoom. Nunca da precios.
+El bot se presenta como **Sofía**, la asistente virtual de Tomás. Su único objetivo es **agendar citas de 30 a 40 minutos**: primero presencial y, si no se puede, por Google Meet. Nunca da precios. Por aceptar la cita, el cliente recibe un regalo premium para su cocina.
 
 Contesta solo a las personas que te escriben desde tus campañas de Facebook/Instagram, las califica, les ofrece horarios libres de tu Google Calendar y agenda la demostración. Cuando agenda o cuando necesita que tú intervengas, te avisa por WhatsApp.
 
@@ -49,7 +49,11 @@ En console.anthropic.com → **API Keys** → **Create Key**. Cópiala; la usar�
 | `CALENDARIO_URL` | *(paso 5)* URL del Apps Script |
 | `CALENDARIO_CLAVE` | *(paso 5)* la clave que pongas en el Apps Script |
 | `MODELO_IA` | *(opcional)* por defecto `claude-sonnet-5-5` |
-| `ZOOM_LINK` | *(opcional)* tu sala personal de Zoom. Si la pones, Sofía la comparte al agendar por Zoom; si no, le dice al cliente que le enviarán el enlace |
+| `CALENDARIO_URL` y `CALENDARIO_CLAVE` | el puente con Google Calendar (`Code.gs`): crea cada cita en tu calendario, con Angy invitada y su enlace único de Meet |
+| `ROYAL_SALES_URL` | dirección de Royal Sales IA (por ejemplo `https://royal-sales-ia.vercel.app`) |
+| `CRM_CLAVE_IMPACT` | clave de integración del workspace **Impact Enterprises** (Texas y clientes de otros estados) |
+| `CRM_CLAVE_APC` | clave de integración del workspace **APC Millenium** (Georgia) |
+| `MEET_LINK` | *(opcional)* enlace fijo de Meet de respaldo, solo si no usas el calendario |
 
 5. **Settings → Networking → Generate Domain**. Esa dirección es tu **panel**. Guárdala en tu pantalla de inicio.
 
@@ -61,20 +65,19 @@ En console.anthropic.com → **API Keys** → **Create Key**. Cópiala; la usar�
 
 > Recomendación: prueba primero con un número secundario. Escríbele desde otro teléfono la frase de tu anuncio y revisa cómo contesta.
 
-## Paso 5 — Conectar tu Google Calendar
-Sin esto el bot funciona, pero no ve tus otras citas (cobranza, servicio…) y podría ofrecer un horario que ya tienes ocupado.
+## Paso 5 — Conectar tu Google Calendar (citas + enlaces de Meet)
+Con esto cada cita se crea en tu calendario (con Angy invitada) y las de Meet llevan su propio enlace.
 
-1. En Safari abre script.google.com (si se ve mal, usa **aA → Solicitar sitio de escritorio**).
+1. En el iPad, abre script.google.com en Safari.
 2. **Nuevo proyecto** → borra lo que hay → pega el contenido de `Code.gs`.
 3. Cambia `CAMBIA-ESTA-CLAVE` por una clave tuya → guardar.
-4. **Implementar → Nueva implementación → ⚙️ Aplicación web**
+4. A la izquierda, en **Servicios**, toca **+** → elige **Google Calendar API** → **Agregar**. Esto es lo que crea los enlaces de Meet.
+5. **Implementar → Nueva implementación → ⚙️ Aplicación web**
    - Ejecutar como: **Yo**
    - Quién tiene acceso: **Cualquier usuario**
-5. Autoriza (si sale “Google no verificó esta app”: **Configuración avanzada → Ir a…**). Es tu propio script.
-6. Copia la URL que termina en `/exec` → en Railway: `CALENDARIO_URL` = esa URL y `CALENDARIO_CLAVE` = tu clave.
-7. Prueba: abre la URL en Safari; debe decir “Puente de calendario funcionando”.
-
-Todos los eventos de tu calendario cuentan como ocupado (menos los de todo el día), con 30 min de margen para manejar.
+6. Autoriza (si sale “Google no verificó esta app”: **Configuración avanzada → Ir a…**). Es tu propio script.
+7. Copia la URL que termina en `/exec` → en Railway: `CALENDARIO_URL` = esa URL y `CALENDARIO_CLAVE` = tu clave.
+8. Prueba: abre la URL en Safari; debe decir “Puente de Royal Cita IA funcionando”.
 
 ## Paso 6 — Ajustar a tu gusto (desde GitHub)
 Cada vez que guardas un cambio en GitHub, Railway se actualiza solo en un minuto **sin perder la vinculación**.
@@ -88,6 +91,14 @@ Cada vez que guardas un cambio en GitHub, Railway se actualiza solo en un minuto
   - `modoRespuesta`: `campanas` (recomendado), `nuevos` o `todos`.
 
 ---
+
+## Reglas de agenda (ajustes.json)
+- **Horario:** de lunes a sábado, cualquier hora de 10:00 a. m. a 8:00 p. m. (la última empieza a las 8); domingo de 2:00 a 5:00 p. m. Siempre en la hora local de cada zona.
+- **Máximo 2 citas en el mismo lapso** por persona que atiende (Tomás y Carlos llevan su propio conteo; las de Meet cuentan para Tomás). No se bloquea por otros eventos del calendario.
+- **Meet** lo atiende Tomás dentro de su horario de Texas (a un cliente de Georgia se le ofrece de 11:00 a. m. a 9:00 p. m. de su hora).
+- **Zonas:** Texas (todo el estado, atiende Tomás, workspace Impact Enterprises) y Georgia (todo el estado, atiende Carlos Aguirre, avisos al grupo de WhatsApp "APC Millenium", workspace APC Millenium). Se detectan por la palabra "Texas" o "Georgia" en el título del anuncio. Fuera de esas zonas, la cita es por Meet.
+- **Calendario:** cada cita va a tu Google Calendar con el título por estado (`TEXAS · Presencial · Nombre`, `GEORGIA · Meet · Nombre`), en azul Pavo real y con Angy invitada.
+- **Recordatorio:** Sofía le escribe al cliente a las 12:00 del día anterior (hora del cliente) para confirmar. Te avisa si confirma, si no contesta en 5 horas, o si cancela o quiere cambiar.
 
 ## Varios estados (zonas) y CRM por estado
 En `ajustes.json` → `"zonas"` defines cada estado o región:

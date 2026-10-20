@@ -25,7 +25,27 @@ export const estadoWA = {
 
 let sock = null
 const idsDelBot = new Set()
+let gruposPorNombre = new Map() // nombre normalizado del grupo → jid
+const gruposNoEncontrados = new Set()
+const normalizar = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+/** Busca los grupos donde está tu número (para avisar a "APC Millenium", etc.) */
+async function cargarGrupos () {
+  try {
+    const todos = await sock.groupFetchAllParticipating()
+    gruposPorNombre = new Map(Object.values(todos).map(g => [normalizar(g.subject), g.id]))
+    console.log('Grupos disponibles para avisos:', [...gruposPorNombre.keys()].join(', ') || 'ninguno')
+  } catch (e) {
+    console.error('No pude leer los grupos:', e.message)
+  }
+}
+async function jidDeGrupo (nombre) {
+  const n = normalizar(nombre)
+  if (!gruposPorNombre.has(n)) await cargarGrupos()
+  return gruposPorNombre.get(n) || [...gruposPorNombre.entries()].find(([k]) => k.includes(n))?.[1] || null
+}
 let reintentos = 0
+let temporizadorRecordatorios = null
 
 function recordarId (id) {
   idsDelBot.add(id)
@@ -44,12 +64,21 @@ const manejador = crearManejador({
   escribiendo: async (jid, activo) => {
     try { await sock?.sendPresenceUpdate(activo ? 'composing' : 'paused', jid) } catch {}
   },
-  // Aviso a Tomás (NUMERO_AVISOS o "mensaje a ti mismo") y, si hay, a quien atiende la zona
-  avisar: async (texto, extras = []) => {
+  // Aviso a Tomás (NUMERO_AVISOS o "mensaje a ti mismo") y, si hay, a quien atiende la zona y a su grupo
+  avisar: async (texto, extras = [], grupos = []) => {
     const dueno = config.numeroAvisos
       ? `${config.numeroAvisos}@s.whatsapp.net`
       : jidNormalizedUser(sock?.user?.id)
-    const destinos = [...new Set([dueno, ...extras.map(n => `${n}@s.whatsapp.net`)].filter(Boolean))]
+    const deGrupos = []
+    for (const g of grupos) {
+      const jid = await jidDeGrupo(g)
+      if (jid) deGrupos.push(jid)
+      else if (!gruposNoEncontrados.has(g)) {
+        gruposNoEncontrados.add(g)
+        try { await enviar(dueno, { text: `⚠️ No encontré el grupo de WhatsApp "${g}" para mandar los avisos. Revisa que tu número esté dentro del grupo y que el nombre sea igual.` }) } catch {}
+      }
+    }
+    const destinos = [...new Set([dueno, ...extras.map(n => `${n}@s.whatsapp.net`), ...deGrupos].filter(Boolean))]
     for (const destino of destinos) {
       console.log('AVISO →', destino, texto.replace(/\n/g, ' | '))
       try { await enviar(destino, { text: texto }) } catch (e) { console.error('No pude enviar el aviso:', e.message) }
@@ -107,6 +136,14 @@ export async function iniciarWhatsApp () {
       estadoWA.desde = Date.now()
       estadoWA.numero = (actual.user?.id || '').split(':')[0].split('@')[0]
       console.log('✅ WhatsApp conectado como', estadoWA.numero)
+      cargarGrupos()
+      if (!temporizadorRecordatorios) {
+        // revisa recordatorios cada 5 minutos
+        temporizadorRecordatorios = setInterval(() => {
+          if (estadoWA.conectado) manejador.revisarRecordatorios().catch(e => console.error('Recordatorios:', e.message))
+        }, 5 * 60_000)
+        setTimeout(() => manejador.revisarRecordatorios().catch(() => {}), 60_000)
+      }
     }
     if (connection === 'close') {
       estadoWA.conectado = false

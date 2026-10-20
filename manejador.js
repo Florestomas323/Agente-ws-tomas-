@@ -2,11 +2,13 @@
 // No depende de Baileys directamente: recibe funciones para enviar (así se puede probar sin WhatsApp).
 import { ajustes } from './config.js'
 import { responder } from './agente.js'
-import { ahora, formatoCita } from './calendario.js'
+import { DateTime } from 'luxon'
+import { ahora, formatoCita, formatoHumano } from './calendario.js'
 import {
-  obtenerChat, crearOActualizarChat, agregarAlHistorial, contarRespuesta, botActivo, marcarConocidos
+  obtenerChat, crearOActualizarChat, agregarAlHistorial, contarRespuesta, botActivo, marcarConocidos,
+  listarCitas, actualizarCita
 } from './almacen.js'
-import { zonaDesdeAnuncio, zonaPorId, numerosDeZona, nombreEstado, hayZonas, quienAtiende } from './zonas.js'
+import { zonaDesdeAnuncio, zonaPorId, numerosDeZona, gruposDeZona, nombreEstado, hayZonas, quienAtiende } from './zonas.js'
 import { enviarAlCrm, crmConfigurado } from './crm.js'
 
 const esGrupoOEspecial = (jid) =>
@@ -95,14 +97,24 @@ const pausa = (ms) => new Promise(r => setTimeout(r, ms))
  * @param {object} io
  * @param {(jid:string, texto:string)=>Promise<void>} io.enviarTexto
  * @param {(jid:string, activo:boolean)=>Promise<void>} io.escribiendo
- * @param {(texto:string, extras?:string[])=>Promise<void>} io.avisar  aviso a Tomás y, si se pasan, a otros números
+ * @param {(texto:string, extras?:string[], grupos?:string[])=>Promise<void>} io.avisar  aviso a Tomás y, si se pasan, a otros números y grupos
  * @param {(id:string)=>boolean} io.esIdDelBot
  * @param {(jid:string)=>boolean} io.esChatPropio
  */
 export function crearManejador (io) {
-  const avisarDueno = (texto) => io.avisar(texto, [])
-  /** Aviso a Tomás y a quien atiende la zona del chat */
-  const avisarZona = (chat, texto) => io.avisar(texto, numerosDeZona(zonaPorId(chat?.zona)))
+  const avisarDueno = (texto) => io.avisar(texto, [], [])
+  /**
+   * Aviso a Tomás y a la zona del chat (números y grupo, p. ej. "APC Millenium").
+   * Las citas por Meet las atiende Tomás: esas solo le llegan a él.
+   */
+  const avisarZona = (chat, texto, { modalidad } = {}) => {
+    const zona = zonaPorId(chat?.zona)
+    if (modalidad === 'meet') return io.avisar(texto, [], [])
+    return io.avisar(texto, numerosDeZona(zona), gruposDeZona(zona))
+  }
+  const modalidadTexto = (c) => c.modalidad === 'meet'
+    ? `📹 Google Meet${c.meetEnlace ? ' — ' + c.meetEnlace : ' — falta el enlace, envíaselo antes de la cita'}`
+    : `🏠 Presencial — 📍 ${c.direccion}`
   const tel = (chat, jid) => chat?.telefono || digitos(jid)
   const etiquetaZona = (chat) => {
     const z = zonaPorId(chat?.zona)
@@ -119,7 +131,8 @@ export function crearManejador (io) {
   async function alCrm (jid, extra = {}) {
     const chat = obtenerChat(jid)
     const zona = zonaPorId(chat?.zona)
-    if (!chat || (hayZonas() && !zona) || !crmConfigurado(zona)) return
+    // sin zona solo se manda cuando ya sabemos que vive fuera de tus estados (va a la cuenta "sin zona")
+    if (!chat || (hayZonas() && !zona && !chat.ciudad) || !crmConfigurado(zona)) return
     const r = await enviarAlCrm(chat, zona, extra)
     if (r.ok) {
       crearOActualizarChat(jid, { crm: { zona: zona?.id || '', id: r.id, enviado: Date.now() } })
@@ -199,16 +212,28 @@ export function crearManejador (io) {
           await alCrm(jid)
         }
       }
+      if (r.cancelada) {
+        const c = r.cancelada
+        const ch = obtenerChat(jid)
+        await avisarZona(ch,
+          `❌ *${c.nombre} canceló su cita*${c.reagendar ? ' (quiere otra fecha)' : ''}\nEra: ${formatoCita(c)}\n${modalidadTexto(c)}\nDijo: "${String(c.motivo).slice(0, 160)}"\n📱 wa.me/${c.telefono || digitos(jid)}`,
+          { modalidad: c.modalidad })
+      }
       if (r.cita) {
         const c = r.cita
         const ch = obtenerChat(jid)
         await avisarZona(ch,
-          `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatoCita(c)}\n` +
-          (c.modalidad === 'zoom' ? `🎥 Por Zoom${c.zoomEnlace ? '' : ' — envíale el enlace antes de la cita'}` : `🏠 Presencial — 📍 ${c.direccion}`) +
+          `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatoCita(c)}\n${modalidadTexto(c)}` +
+          `\n👤 Atiende: ${c.atiende}` +
           `\n📱 wa.me/${c.telefono || digitos(jid)}` + (c.notas ? `\n📝 ${c.notas}` : '') +
-          `\n${etiquetaZona(ch)}` + (ch.anuncio ? `\n📢 ${ch.anuncio}` : '')
-        )
+          `\n${etiquetaZona(ch)}` + (ch.anuncio ? `\n📢 ${ch.anuncio}` : ''),
+          { modalidad: c.modalidad })
+        if (r.errorCalendario) await avisarDueno(`⚠️ La cita de ${c.nombre} quedó guardada, pero no pude crearla en Google Calendar: ${r.errorCalendario}`).catch(() => {})
         await alCrm(jid, { cita: c, citaTexto: formatoCita(c) })
+      }
+      if (r.confirmada) {
+        const c = r.confirmada
+        await avisarZona(obtenerChat(jid), `✅ *${c.nombre} confirmó su cita*\n${formatoCita(c)}\n${modalidadTexto(c)}`, { modalidad: c.modalidad })
       }
       if (r.humano) {
         crearOActualizarChat(jid, { estado: 'humano' })
@@ -345,5 +370,52 @@ export function crearManejador (io) {
     if (chat?.estado === 'prospecto' && ultimo?.rol === 'cliente' && botActivo()) programarRespuesta(jid)
   }
 
-  return { procesar, historialInicial, contestar, contestarAhora }
+  /**
+   * Recordatorio del día anterior (a la hora de ajustes.recordatorio.hora, en la hora local del cliente)
+   * y aviso a Tomás si el cliente no contesta. Se llama cada pocos minutos desde whatsapp.js.
+   */
+  async function revisarRecordatorios () {
+    const conf = ajustes.recordatorio || {}
+    if (conf.activo === false) return
+    const [hh, mm] = String(conf.hora || '12:00').split(':').map(Number)
+    const horasSinRespuesta = conf.avisarSinRespuestaHoras ?? 5
+    const ahoraMs = Date.now()
+    for (const c of listarCitas()) {
+      if (c.estado !== 'agendada' || Date.parse(c.inicio) <= ahoraMs) continue
+      const tz = c.tzCliente || c.zonaHoraria
+      const inicio = DateTime.fromISO(c.inicio).setZone(tz)
+      const momento = inicio.minus({ days: 1 }).set({ hour: hh, minute: mm || 0, second: 0, millisecond: 0 })
+      const chat = obtenerChat(c.chatId)
+
+      // 1) enviar el recordatorio
+      if (!c.recordatorio && ahoraMs >= +momento && (c.creada || 0) < +momento && ahoraMs < Date.parse(c.inicio) - 2 * 3600_000) {
+        const nombre = String(c.nombre || '').split(' ')[0]
+        const cuando = formatoHumano(inicio) // "jueves 23 de octubre, 3:00 p. m."
+        const donde = c.modalidad === 'meet'
+          ? `por Google Meet${c.meetEnlace ? `. Este es el enlace: ${c.meetEnlace}` : ' (te enviaremos el enlace)'}`
+          : `en tu casa (${c.direccion})`
+        const texto = `¡Hola${nombre ? ' ' + nombre : ''}! Soy Sofía, la asistente de Tomás 😊 Te escribo para confirmar tu cita de mañana, ${cuando}, ${donde}.\n\n¿Nos confirmas que todo sigue en pie? Recuerda que tienes un regalo premium para tu cocina 🎁`
+        try {
+          await io.enviarTexto(c.chatId, texto)
+          if (chat) agregarAlHistorial(c.chatId, 'bot', texto)
+          actualizarCita(c.id, { recordatorio: { enviado: Date.now() } })
+          await avisarZona(chat || { zona: c.zona }, `⏰ Recordatorio enviado a ${c.nombre} para su cita de ${formatoCita(c)} (${c.modalidad === 'meet' ? 'Meet' : 'presencial'}).`, { modalidad: c.modalidad })
+        } catch (e) {
+          console.error('No pude enviar el recordatorio', c.id, e.message)
+        }
+        continue
+      }
+
+      // 2) avisar si no contestó
+      if (c.recordatorio && !c.confirmacion && !c.recordatorio.avisoSinRespuesta &&
+          ahoraMs >= c.recordatorio.enviado + horasSinRespuesta * 3600_000) {
+        actualizarCita(c.id, { recordatorio: { ...c.recordatorio, avisoSinRespuesta: Date.now() } })
+        await avisarZona(chat || { zona: c.zona },
+          `⚠️ *${c.nombre} no ha confirmado* su cita de ${formatoCita(c)} (${c.modalidad === 'meet' ? 'Meet' : 'presencial'}).\n📱 wa.me/${c.telefono || digitos(c.chatId)}`,
+          { modalidad: c.modalidad }).catch(() => {})
+      }
+    }
+  }
+
+  return { procesar, historialInicial, contestar, contestarAhora, revisarRecordatorios }
 }

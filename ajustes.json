@@ -1,11 +1,9 @@
 {
-  "_ayuda": "Edita este archivo desde GitHub para cambiar horarios y reglas. Las horas van en formato 24h (13:00 = 1 PM).",
-
+  "_ayuda": "Edita este archivo desde GitHub. Horas en formato 24 h (13:00 = 1 PM). Las claves que empiezan con _ son solo explicaciones.",
   "zonaHoraria": "America/Chicago",
-
+  "_zonaHoraria": "Tu hora (Texas). Las citas por Meet siempre se dan dentro de tu horario en esta hora.",
   "modoRespuesta": "campanas",
   "_modoRespuesta": "campanas = solo chats que llegan desde un anuncio (o con una frase clave) | nuevos = cualquier número que no tenías antes | todos = todos los chats (nunca grupos)",
-
   "frasesClave": [
     "más información",
     "mas informacion",
@@ -20,72 +18,106 @@
     "promocion"
   ],
   "_frasesClave": "Si el primer mensaje de alguien contiene una de estas frases, el bot lo trata como prospecto de campaña. Pon aquí el mensaje que trae prellenado tu anuncio.",
-
-  "horarios": {
-    "lunes":     ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
-    "martes":    ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
-    "miercoles": ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
-    "jueves":    ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
-    "viernes":   ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
-    "sabado":    ["10:00", "11:30", "13:00", "14:30"],
-    "domingo":   []
+  "horarioAtencion": {
+    "lunes": [
+      "10:00",
+      "20:00"
+    ],
+    "martes": [
+      "10:00",
+      "20:00"
+    ],
+    "miercoles": [
+      "10:00",
+      "20:00"
+    ],
+    "jueves": [
+      "10:00",
+      "20:00"
+    ],
+    "viernes": [
+      "10:00",
+      "20:00"
+    ],
+    "sabado": [
+      "10:00",
+      "20:00"
+    ],
+    "domingo": [
+      "14:00",
+      "17:00"
+    ]
   },
-  "_horarios": "Horas de inicio que el bot puede ofrecer cada día. Deja [] para no agendar ese día.",
-
-  "zonas": [
-    {
-      "id": "tx-central",
-      "nombre": "Texas Central",
-      "estados": ["TX"],
-      "ciudades": ["Temple", "Austin", "Round Rock"],
-      "palabrasAnuncio": ["Temple", "Austin", "Round Rock", "Texas Central"],
-      "zonaHoraria": "America/Chicago",
-      "atiende": "Tomás",
-      "avisarA": [],
-      "crmClaveVariable": "CRM_CLAVE_TX_CENTRAL"
-    },
-    {
-      "id": "dfw",
-      "nombre": "Dallas – Fort Worth",
-      "estados": ["TX"],
-      "ciudades": ["Dallas", "Fort Worth", "Arlington"],
-      "palabrasAnuncio": ["DFW", "Dallas", "Fort Worth"],
-      "zonaHoraria": "America/Chicago",
-      "atiende": "Tomás",
-      "avisarA": [],
-      "crmClaveVariable": "CRM_CLAVE_DFW"
-    }
-  ],
-  "_zonas": "Una zona por estado o región. ciudades: las principales (la IA entiende también las de alrededor). palabrasAnuncio: palabras que pones en el nombre o texto del anuncio para saber de qué zona viene. zonaHoraria: America/New_York (Este), America/Chicago (Centro), America/Denver (Montaña), America/Phoenix (Arizona), America/Los_Angeles (Pacífico). Puedes poner \"horarios\" propios en una zona; si no, usa los de arriba. atiende: quién va a la cita. avisarA: WhatsApp de esa persona (con 1 adelante) para que reciba los avisos de su zona. crmClaveVariable: nombre de la variable de Railway donde está la clave de integración de la cuenta de Royal Sales IA de esa zona.",
-
-  "avisarNuevoProspecto": true,
-  "_avisarNuevoProspecto": "Te manda un WhatsApp apenas alguien escribe desde una campaña, con el anuncio y la zona.",
-
+  "_horarioAtencion": "Por día: [primera hora, última hora a la que puede EMPEZAR una cita], en la hora local de cada zona. Deja [] para no agendar ese día.",
+  "maxCitasSimultaneas": 2,
+  "_maxCitasSimultaneas": "Máximo de citas que pueden coincidir en el mismo lapso, por cada persona que atiende (tú y Carlos llevan su propio conteo; las de Meet cuentan para ti).",
   "duracionCitaMinutos": 40,
-  "margenTrasladoMinutos": 30,
-  "_margenTrasladoMinutos": "Citas presenciales: tiempo libre que se respeta antes y después de cualquier evento de tu calendario (para manejar).",
-  "margenZoomMinutos": 10,
-  "_margenZoomMinutos": "Citas por Zoom: tiempo libre entre citas (no hay que manejar).",
   "anticipacionMinimaHoras": 3,
   "diasAMostrar": 7,
-
-  "calendario": {
-    "tituloCita": "Cita Royal Prestige — {nombre}",
-    "colorId": "7",
-    "invitados": []
+  "atiendeMeet": "Tomás",
+  "_atiendeMeet": "Quién atiende las citas por Google Meet (de cualquier estado).",
+  "zonas": [
+    {
+      "id": "texas",
+      "nombre": "Texas",
+      "estados": [
+        "TX"
+      ],
+      "ciudades": [],
+      "palabrasAnuncio": [
+        "Texas"
+      ],
+      "zonaHoraria": "America/Chicago",
+      "atiende": "Tomás",
+      "avisarA": [],
+      "avisarGrupo": "",
+      "crmClaveVariable": "CRM_CLAVE_IMPACT"
+    },
+    {
+      "id": "georgia",
+      "nombre": "Georgia",
+      "estados": [
+        "GA"
+      ],
+      "ciudades": [],
+      "palabrasAnuncio": [
+        "Georgia"
+      ],
+      "zonaHoraria": "America/New_York",
+      "atiende": "Carlos Aguirre",
+      "avisarA": [],
+      "avisarGrupo": "APC Millenium",
+      "crmClaveVariable": "CRM_CLAVE_APC"
+    }
+  ],
+  "_zonas": "Una zona por estado. palabrasAnuncio: palabra que va en el título del anuncio (o en el mensaje prellenado). atiende: quién va a las citas presenciales. avisarA: WhatsApp extra para avisos (con 1 adelante). avisarGrupo: nombre exacto del grupo de WhatsApp que recibe los avisos de la zona (tu número debe estar dentro); las citas por Meet solo te llegan a ti. crmClaveVariable: variable de Railway con la clave de integración del workspace de Royal Sales IA.",
+  "crmClaveVariableSinZona": "CRM_CLAVE_IMPACT",
+  "_crmClaveVariableSinZona": "Workspace de Royal Sales IA para clientes de otros estados (citas por Meet).",
+  "avisarNuevoProspecto": true,
+  "_avisarNuevoProspecto": "Te manda un WhatsApp apenas alguien escribe desde una campaña, con el anuncio y la zona.",
+  "recordatorio": {
+    "activo": true,
+    "hora": "12:00",
+    "avisarSinRespuestaHoras": 5
   },
-  "_calendario": "colorId 7 = azul Pavo real (citas de venta). En invitados pon correos, por ejemplo [\"correo@gmail.com\"].",
-
+  "_recordatorio": "Sofía le escribe al cliente el día anterior a esta hora (hora local del cliente). Si no contesta en avisarSinRespuestaHoras, te aviso.",
+  "calendario": {
+    "colorId": "7",
+    "invitados": [
+      "paredesangiemar@gmail.com"
+    ]
+  },
+  "_calendario": "colorId 7 = azul Pavo real. invitados: correos que reciben cada cita (Angy). El título de cada cita empieza con el estado: TEXAS · Presencial · Nombre.",
+  "frasesActivanChatsConocidos": false,
+  "_frasesActivanChatsConocidos": "false: si un chat que ya tenías pide información, te aviso y lo activas tú desde la app. true: Sofía lo atiende sola.",
   "pausaAlIntervenirHoras": 24,
   "_pausaAlIntervenirHoras": "Si tú escribes a mano en un chat, el bot se calla en ese chat por estas horas.",
-
   "esperaAntesDeResponderSegundos": 7,
   "_esperaAntesDeResponderSegundos": "Espera a que el cliente termine de escribir varios mensajes seguidos antes de contestar.",
   "variacionEsperaSegundos": 6,
   "_variacionEsperaSegundos": "Segundos extra al azar (0 a este número) para que no conteste siempre al mismo tiempo exacto.",
   "marcarComoLeido": true,
   "_marcarComoLeido": "Pone las palomitas azules un momento antes de empezar a escribir, como haría una persona.",
-
   "maxRespuestasPorChatAlDia": 40,
   "edadMaximaMensajeHoras": 3
 }

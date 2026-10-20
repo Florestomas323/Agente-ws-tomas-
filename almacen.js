@@ -82,6 +82,14 @@ export function agregarCita (cita) {
   guardar()
 }
 
+export function actualizarCita (id, cambios) {
+  const c = datos.citas.find(x => x.id === id)
+  if (!c) return null
+  Object.assign(c, cambios)
+  guardar()
+  return c
+}
+
 export function listarCitas () {
   return [...datos.citas].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))
 }
