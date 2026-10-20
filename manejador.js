@@ -2,11 +2,12 @@
 // No depende de Baileys directamente: recibe funciones para enviar (así se puede probar sin WhatsApp).
 import { ajustes } from './config.js'
 import { responder } from './agente.js'
-import { DateTime } from 'luxon'
-import { ahora, formatoHumano } from './calendario.js'
+import { ahora, formatoCita } from './calendario.js'
 import {
   obtenerChat, crearOActualizarChat, agregarAlHistorial, contarRespuesta, botActivo, marcarConocidos
 } from './almacen.js'
+import { zonaDesdeAnuncio, zonaPorId, numerosDeZona, nombreEstado, hayZonas, quienAtiende } from './zonas.js'
+import { enviarAlCrm, crmConfigurado } from './crm.js'
 
 const esGrupoOEspecial = (jid) =>
   !jid || jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter') || jid === 'status@broadcast'
@@ -54,7 +55,14 @@ export function datosDeAnuncio (mensaje) {
     const fuente = `${ci.conversionSource || ''} ${ci.entryPointConversionSource || ''} ${ci.entryPointConversionApp || ''}`
     if (ci.externalAdReply || ci.ctwaPayload || /ad|ctwa/i.test(fuente)) {
       const ad = ci.externalAdReply || {}
-      return { esAnuncio: true, titulo: [ad.title, ad.body].filter(Boolean).join(' — ').slice(0, 200) }
+      return {
+        esAnuncio: true,
+        titulo: [ad.title, ad.body].filter(Boolean).join(' — ').slice(0, 200),
+        id: ad.sourceType === 'ad' && ad.sourceId ? String(ad.sourceId) : '',
+        url: ad.sourceUrl || '',
+        // todo el texto del anuncio, para reconocer la zona por sus palabras
+        texto: [ad.title, ad.body, ad.sourceUrl, ad.greetingMessageBody, ad.ref].filter(Boolean).join(' ')
+      }
     }
   }
   return { esAnuncio: false }
@@ -65,17 +73,58 @@ function tieneFraseClave (texto) {
   return (ajustes.frasesClave || []).some(f => t.includes(f.toLowerCase()))
 }
 
+/** Campos del chat que salen del anuncio, incluida la zona si sus palabras la delatan */
+function datosAnuncio (anuncio) {
+  if (!anuncio.esAnuncio) return {}
+  const z = zonaDesdeAnuncio(anuncio.texto)
+  return {
+    anuncio: anuncio.titulo || '',
+    anuncioId: anuncio.id || '',
+    anuncioUrl: anuncio.url || '',
+    ...(z ? { zona: z.id, zonaFuente: 'anuncio' } : {})
+  }
+}
+
 const pausa = (ms) => new Promise(r => setTimeout(r, ms))
 
 /**
  * @param {object} io
  * @param {(jid:string, texto:string)=>Promise<void>} io.enviarTexto
  * @param {(jid:string, activo:boolean)=>Promise<void>} io.escribiendo
- * @param {(texto:string)=>Promise<void>} io.avisarDueno
+ * @param {(texto:string, extras?:string[])=>Promise<void>} io.avisar  aviso a Tomás y, si se pasan, a otros números
  * @param {(id:string)=>boolean} io.esIdDelBot
  * @param {(jid:string)=>boolean} io.esChatPropio
  */
 export function crearManejador (io) {
+  const avisarDueno = (texto) => io.avisar(texto, [])
+  /** Aviso a Tomás y a quien atiende la zona del chat */
+  const avisarZona = (chat, texto) => io.avisar(texto, numerosDeZona(zonaPorId(chat?.zona)))
+  const tel = (chat, jid) => chat?.telefono || digitos(jid)
+  const etiquetaZona = (chat) => {
+    const z = zonaPorId(chat?.zona)
+    const lugar = [chat?.ciudad, chat?.estadoUS ? nombreEstado(chat.estadoUS) : ''].filter(Boolean).join(', ')
+    if (z) {
+      const detalle = lugar ? ` (${lugar})` : (chat.zonaFuente === 'anuncio' ? ' (según el anuncio; falta confirmar su ciudad)' : '')
+      return `📍 ${z.nombre || z.id}${detalle} — atiende ${quienAtiende(z)}`
+    }
+    if (lugar) return hayZonas() ? `📍 ${lugar} — fuera de tus zonas` : `📍 ${lugar}`
+    return '📍 Zona por confirmar'
+  }
+
+  /** Manda el chat al CRM de su zona (si está configurado) y avisa a Tomás si falla */
+  async function alCrm (jid, extra = {}) {
+    const chat = obtenerChat(jid)
+    const zona = zonaPorId(chat?.zona)
+    if (!chat || (hayZonas() && !zona) || !crmConfigurado(zona)) return
+    const r = await enviarAlCrm(chat, zona, extra)
+    if (r.ok) {
+      crearOActualizarChat(jid, { crm: { zona: zona?.id || '', id: r.id, enviado: Date.now() } })
+      console.log(`CRM ${zona?.id || 'general'} ← ${jid} (${r.duplicado ? 'actualizado' : 'nuevo'})`)
+    } else if (!r.omitido) {
+      console.error('CRM falló', jid, r.error)
+      await avisarDueno(`⚠️ No pude mandar a ${chat.nombre || ''} (wa.me/${tel(chat, jid)}) al CRM de ${zona?.nombre || 'la zona'}: ${r.error}`).catch(() => {})
+    }
+  }
   const temporizadores = new Map()
   const ocupados = new Set()
   const pendientes = new Set()
@@ -104,7 +153,7 @@ export function crearManejador (io) {
       const n = contarRespuesta(jid, ahora().toISODate())
       if (n > (ajustes.maxRespuestasPorChatAlDia || 40)) {
         crearOActualizarChat(jid, { estado: 'humano' })
-        await io.avisarDueno(`⚠️ El bot dejó de contestar a ${chat.nombre || ''} (+${chat.telefono || digitos(jid)}) porque llegó al límite de mensajes del día. Revisa ese chat.`)
+        await avisarZona(chat, `⚠️ El bot dejó de contestar a ${chat.nombre || ''} (wa.me/${tel(chat, jid)}) porque llegó al límite de mensajes del día. Revisa ese chat.`)
         return
       }
 
@@ -138,18 +187,30 @@ export function crearManejador (io) {
       }
       await io.escribiendo(jid, false)
 
+      if (r.ubicacion) {
+        const ch = obtenerChat(jid)
+        if (r.ubicacion.zonaNueva !== r.ubicacion.zonaAnterior || !ch.avisoUbicacion) {
+          crearOActualizarChat(jid, { avisoUbicacion: Date.now(), zonaFuente: 'cliente' })
+          await avisarZona(ch, `🧭 *${ch.nombre || 'Prospecto'}* dijo dónde vive\n${etiquetaZona(ch)}\n📱 wa.me/${tel(ch, jid)}`)
+          await alCrm(jid)
+        }
+      }
       if (r.cita) {
         const c = r.cita
-        await io.avisarDueno(
-          `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatear(c.inicio)}\n📍 ${c.direccion}` +
-          `\n📱 wa.me/${c.telefono || digitos(jid)}` + (c.notas ? `\n📝 ${c.notas}` : '')
+        const ch = obtenerChat(jid)
+        await avisarZona(ch,
+          `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatoCita(c)}\n📍 ${c.direccion}` +
+          `\n📱 wa.me/${c.telefono || digitos(jid)}` + (c.notas ? `\n📝 ${c.notas}` : '') +
+          `\n${etiquetaZona(ch)}` + (ch.anuncio ? `\n📢 ${ch.anuncio}` : '')
         )
+        await alCrm(jid, { cita: c, citaTexto: formatoCita(c) })
       }
       if (r.humano) {
         crearOActualizarChat(jid, { estado: 'humano' })
-        await io.avisarDueno(
-          `🙋 *Un prospecto necesita que le escribas tú*\n${chat.nombre || ''} — wa.me/${chat.telefono || digitos(jid)}` +
-          `\nMotivo: ${r.humano.motivo}\nResumen: ${r.humano.resumen}`
+        const ch = obtenerChat(jid)
+        await avisarZona(ch,
+          `🙋 *Un prospecto necesita que le escribas tú*\n${ch.nombre || ''} — wa.me/${tel(ch, jid)}` +
+          `\nMotivo: ${r.humano.motivo}\nResumen: ${r.humano.resumen}\n${etiquetaZona(ch)}`
         )
       }
     } catch (e) {
@@ -159,16 +220,12 @@ export function crearManejador (io) {
       if (Date.now() - ult > 3600_000) {
         ultimoAvisoError.set(jid, Date.now())
         const chat = obtenerChat(jid)
-        await io.avisarDueno(`❌ El bot no pudo contestar a ${chat?.nombre || ''} (wa.me/${chat?.telefono || digitos(jid)}). Error: ${String(e.message).slice(0, 150)}. Contéstale tú.`).catch(() => {})
+        await avisarDueno(`❌ El bot no pudo contestar a ${chat?.nombre || ''} (wa.me/${chat?.telefono || digitos(jid)}). Error: ${String(e.message).slice(0, 150)}. Contéstale tú.`).catch(() => {})
       }
     } finally {
       ocupados.delete(jid)
       if (pendientes.delete(jid)) programarRespuesta(jid)
     }
-  }
-
-  function formatear (iso) {
-    return formatoHumano(DateTime.fromISO(iso).setZone(ahora().zone))
   }
 
   /** Procesa un mensaje de messages.upsert */
@@ -202,6 +259,7 @@ export function crearManejador (io) {
     const telefono = digitos(alt && alt.endsWith('@s.whatsapp.net') ? alt : (jid.endsWith('@s.whatsapp.net') ? jid : ''))
     const anuncio = datosDeAnuncio(msg.message)
     let chat = obtenerChat(jid)
+    let nuevoProspecto = false
     const base = { nombre: msg.pushName || chat?.nombre || '', telefono: telefono || chat?.telefono || '' }
 
     if (!chat) {
@@ -211,15 +269,16 @@ export function crearManejador (io) {
         ...base,
         estado: esProspecto ? 'prospecto' : 'conocido',
         origen: anuncio.esAnuncio ? 'anuncio' : (esProspecto ? (modo === 'campanas' ? 'frase clave' : modo) : ''),
-        anuncio: anuncio.titulo || ''
+        ...datosAnuncio(anuncio)
       })
-      if (esProspecto) console.log(`Nuevo prospecto ${jid} (${chat.origen})`)
+      if (esProspecto) { console.log(`Nuevo prospecto ${jid} (${chat.origen})`); nuevoProspecto = true }
     } else {
       const cambios = { ...base }
       if (chat.estado === 'conocido' && (anuncio.esAnuncio || ajustes.modoRespuesta === 'todos')) {
         cambios.estado = 'prospecto'
         cambios.origen = anuncio.esAnuncio ? 'anuncio' : 'todos'
-        cambios.anuncio = anuncio.titulo || ''
+        Object.assign(cambios, datosAnuncio(anuncio))
+        nuevoProspecto = true
       }
       if (chat.estado === 'pausado' && chat.pausadoHasta && Date.now() > chat.pausadoHasta) {
         cambios.estado = 'prospecto'
@@ -230,6 +289,18 @@ export function crearManejador (io) {
 
     if (chat.estado === 'conocido') return
     agregarAlHistorial(jid, 'cliente', texto)
+
+    if (nuevoProspecto) {
+      const ch = obtenerChat(jid)
+      if (ajustes.avisarNuevoProspecto !== false) {
+        await avisarZona(ch,
+          `📣 *Nuevo prospecto de campaña*\n${ch.nombre || 'Sin nombre'} — wa.me/${tel(ch, jid)}` +
+          `\n📢 ${ch.origen === 'anuncio' ? 'Anuncio: ' + (ch.anuncio || 'sin título') : 'Escribió: "' + texto.slice(0, 80) + '"'}` +
+          `\n${etiquetaZona(ch)}`
+        ).catch(e => console.error('Aviso de nuevo prospecto falló', e.message))
+      }
+      if (ch.zona) await alCrm(jid)
+    }
     if (chat.estado === 'prospecto' && botActivo()) {
       porLeer.set(jid, [...(porLeer.get(jid) || []), msg.key].slice(-20))
       programarRespuesta(jid)

@@ -86,11 +86,34 @@ Cada vez que guardas un cambio en GitHub, Railway se actualiza solo en un minuto
 
 ---
 
-## El panel
-- **Encender / apagar** el bot completo.
-- **Próximas citas** con botones de WhatsApp y Mapa.
-- **Conversaciones**: verde = bot contestando · amarillo = en pausa porque tú escribiste · rojo = te toca a ti.
-- Dentro de cada chat: ver la conversación completa, **“Que el bot conteste”**, **pausar** o **ignorar**.
+## Varios estados (zonas) y CRM por estado
+En `ajustes.json` → `"zonas"` defines cada estado o región:
+- `ciudades` y `estados` que cubre (la IA entiende también las ciudades de alrededor).
+- `palabrasAnuncio`: palabras que pones en el nombre o texto del anuncio (por ejemplo "Florida", "Orlando"). Si el anuncio las trae, el bot ya sabe de qué zona viene antes de preguntar.
+- `zonaHoraria`: para que los horarios salgan en la hora local del cliente.
+- `atiende` y `avisarA`: quién va a la cita y su WhatsApp. Esa persona recibe los avisos de su zona; tú recibes todos.
+- `crmClaveVariable`: el nombre de la variable de Railway con la clave de integración de la cuenta de Royal Sales IA de esa zona.
+
+Cómo funciona:
+1. Alguien escribe desde un anuncio → te llega **📣 Nuevo prospecto** con el nombre del anuncio y la zona (si el anuncio la delata).
+2. El bot pregunta la ciudad y la confirma → te llega **🧭 dijo dónde vive** con su ciudad, estado y zona. Si está fuera de tus zonas, no agenda y te avisa.
+3. El prospecto entra al **CRM de su zona** (Royal Sales IA → Leads), con el anuncio de donde vino.
+4. Al agendar, la cita se guarda en la hora local, te avisa a ti y a quien atiende, y se actualiza en el CRM.
+
+Variables de Railway para el CRM:
+| Variable | Valor |
+|---|---|
+| `ROYAL_SALES_URL` | la dirección de tu Royal Sales IA, por ejemplo `https://royal-sales-ia.vercel.app` |
+| `CRM_CLAVE_TX_CENTRAL`, `CRM_CLAVE_DFW`, … | la clave de integración de cada cuenta (en Royal Sales IA: Integraciones → Sitio web). Un nombre por zona, el que pusiste en `crmClaveVariable` |
+| `CRM_CLAVE` | *(opcional)* clave única si todo va a una sola cuenta |
+
+## La app
+Tu panel es una app: ábrela en Safari, toca **Compartir → Agregar a pantalla de inicio** y queda con su ícono, a pantalla completa.
+- **Hoy**: quién te está esperando ("te toca a ti"), los números de la semana y las próximas citas.
+- **Chats**: todas las conversaciones del bot, con filtros (Te toca, Bot, En pausa). Dentro de cada chat puedes **escribirle tú al cliente**; al hacerlo, el bot se pausa en ese chat.
+- **Citas**: las citas agendadas, con botones para WhatsApp y Cómo llegar.
+- **Ajustes**: encender o apagar el bot, estado de WhatsApp (y el código de vinculación cuando haga falta) y cerrar sesión.
+Se actualiza sola cada pocos segundos mientras la tienes abierta.
 
 ## Cuidados con WhatsApp
 Baileys no es la API oficial; WhatsApp puede bloquear números que usan automatización. Este bot está hecho para bajar ese riesgo: **solo contesta a quien te escribe primero**, simula que está escribiendo, espera entre mensajes, no manda mensajes masivos y tiene un límite diario por chat. Aun así, no lo uses para enviar promociones en masa.
@@ -112,5 +135,9 @@ Baileys no es la API oficial; WhatsApp puede bloquear números que usan automati
 | `agente.js` | Conversación con la IA y sus herramientas |
 | `calendario.js` | Horarios libres y creación de citas |
 | `almacen.js` | Guarda chats y citas en `/data` |
-| `panel.js` | Panel web |
+| `zonas.js` | Zonas por estado: detección por anuncio y ciudad |
+| `crm.js` | Envía prospectos y citas al CRM de cada zona |
+| `panel.js` | Servidor de la app y sus datos |
+| `app.html` | La app (pantallas Hoy, Chats, Citas, Ajustes) |
+| `icono.js` | Ícono de la app |
 | `Code.gs` | Se pega en Google Apps Script, **no** hace falta subirlo a GitHub |

@@ -1,18 +1,39 @@
-// Panel web para el celular: vincular WhatsApp, ver citas, pausar/reactivar chats.
+// App web del agente: se instala en la pantalla de inicio del iPhone/iPad.
+// Sirve la app (app.html), su ícono/manifiesto y una pequeña API JSON protegida con PANEL_CLAVE.
 import http from 'node:http'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { DateTime } from 'luxon'
 import { config, ajustes } from './config.js'
-import { estadoWA, desvincular } from './whatsapp.js'
+import { estadoWA, desvincular, enviarComoTomas } from './whatsapp.js'
 import {
   listarChats, listarCitas, obtenerChat, crearOActualizarChat, botActivo, cambiarBotActivo
 } from './almacen.js'
+import { ICONO_180, ICONO_192, ICONO_512 } from './icono.js'
+import { listaZonas, zonaPorId, nombreEstado } from './zonas.js'
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const aqui = path.dirname(fileURLToPath(import.meta.url))
+const APP_HTML = fs.readFileSync(path.join(aqui, 'app.html'), 'utf8')
 const zona = () => ajustes.zonaHoraria || 'America/Chicago'
-const fecha = (ms) => ms ? DateTime.fromMillis(ms).setZone(zona()).setLocale('es').toFormat("d LLL, h:mm a") : ''
-const fechaISO = (iso) => DateTime.fromISO(iso).setZone(zona()).setLocale('es').toFormat("ccc d 'de' LLL, h:mm a")
 const ficha = () => crypto.createHash('sha256').update('panel:' + config.panelClave).digest('hex').slice(0, 32)
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+const MANIFIESTO = JSON.stringify({
+  name: 'Agente de citas',
+  short_name: 'Citas',
+  start_url: '/',
+  scope: '/',
+  display: 'standalone',
+  background_color: '#17352F',
+  theme_color: '#17352F',
+  lang: 'es',
+  icons: [
+    { src: '/icono-192.png', sizes: '192x192', type: 'image/png' },
+    { src: '/icono-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+  ]
+})
 
 function autorizado (req) {
   if (!config.panelClave) return false
@@ -24,148 +45,174 @@ function leerCuerpo (req) {
   return new Promise((resolve) => {
     let b = ''
     req.on('data', d => { b += d; if (b.length > 1e5) req.destroy() })
-    req.on('end', () => resolve(Object.fromEntries(new URLSearchParams(b))))
+    req.on('end', () => {
+      const tipo = req.headers['content-type'] || ''
+      if (tipo.includes('application/json')) { try { return resolve(JSON.parse(b || '{}')) } catch { return resolve({}) } }
+      resolve(Object.fromEntries(new URLSearchParams(b)))
+    })
   })
 }
 
-const ETIQUETAS = {
-  prospecto: ['Bot contestando', 'ok'],
-  pausado: ['En pausa (tú)', 'warn'],
-  humano: ['Te toca a ti', 'alert'],
-  conocido: ['Ignorado', 'mute']
-}
+// ---------- datos para la app ----------
 
-function pagina (titulo, cuerpo, refrescar = 0) {
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-${refrescar ? `<meta http-equiv="refresh" content="${refrescar}">` : ''}
-<title>${esc(titulo)}</title>
-<style>
-:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--muted:#6b6a66;--line:#e6e3dc;--brand:#0f5c4d;--ok:#1f7a4d;--warn:#a86a00;--alert:#b3261e;--mute:#8a8984;--bubble:#e8f3ee;--bubble2:#fff}
-@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#ecebe7;--muted:#a3a29c;--line:#2e2d2a;--brand:#4fb39a;--ok:#5cc28c;--warn:#e0a63a;--alert:#ff8a80;--mute:#8a8984;--bubble:#1f3a31;--bubble2:#262624}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
-h1{font-size:22px;margin:8px 0 16px}h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:28px 0 10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
-.fila{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.muted{color:var(--muted);font-size:14px}.chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
-.ok{color:var(--ok)}.warn{color:var(--warn)}.alert{color:var(--alert)}.mute{color:var(--mute)}
-button,.btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px;font-size:15px;font-weight:600;text-decoration:none;display:inline-block}
-.primario{background:var(--brand);border-color:var(--brand);color:#fff}
-.codigo{font:700 34px/1.1 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-align:center;padding:18px 0;color:var(--brand)}
-ol{padding-left:20px;margin:8px 0}li{margin:4px 0}
-input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;margin:8px 0}
-.burbuja{max-width:85%;padding:9px 12px;border-radius:12px;margin:6px 0;white-space:pre-wrap;word-wrap:break-word}
-.cliente{background:var(--bubble2);border:1px solid var(--line)}.bot,.tomas{background:var(--bubble);margin-left:auto}
-.acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}form{margin:0}
-a{color:var(--brand)}details summary{cursor:pointer;color:var(--brand);font-weight:600}
-</style></head><body><main>${cuerpo}</main></body></html>`
-}
-
-function boton (accion, texto, id = '', clase = '') {
-  return `<form method="post" action="/accion"><input type="hidden" name="accion" value="${accion}"><input type="hidden" name="id" value="${esc(id)}"><button class="${clase}">${esc(texto)}</button></form>`
-}
-
-function vistaInicio () {
-  let wa
-  if (estadoWA.conectado) {
-    wa = `<div class="card fila"><div><strong class="ok">● Conectado</strong><div class="muted">+${esc(estadoWA.numero)} · desde ${fecha(estadoWA.desde)}</div></div></div>`
-  } else if (estadoWA.codigoVinculacion || estadoWA.qrImagen) {
-    wa = `<div class="card"><strong class="warn">● Falta vincular WhatsApp</strong>
-${estadoWA.codigoVinculacion ? `<div class="codigo">${esc(estadoWA.codigoVinculacion)}</div>
-<ol class="muted"><li>Abre WhatsApp (o WhatsApp Business) en tu iPhone.</li><li>Ajustes → Dispositivos vinculados → Vincular un dispositivo.</li><li>Toca <b>“Vincular con el número de teléfono”</b> y escribe este código.</li></ol>
-<p class="muted">El código cambia cada pocos minutos; esta página se actualiza sola.</p>` : '<p class="muted">Pon NUMERO_WHATSAPP en las variables de Railway para recibir un código de 8 letras.</p>'}
-${estadoWA.qrImagen ? `<details><summary>O escanear QR desde otro teléfono</summary><p><img src="${estadoWA.qrImagen}" width="260" height="260" alt="QR"></p></details>` : ''}
-</div>`
-  } else {
-    wa = `<div class="card"><strong class="warn">● Conectando…</strong><div class="muted">${esc(estadoWA.ultimoError)}</div></div>`
+function resumenChat (c) {
+  const ult = c.historial[c.historial.length - 1]
+  return {
+    id: c.id,
+    nombre: c.nombre || '',
+    telefono: c.telefono || '',
+    estado: c.estado,
+    origen: c.origen || '',
+    anuncio: c.anuncio || '',
+    zona: c.zona || '',
+    zonaNombre: zonaPorId(c.zona)?.nombre || '',
+    lugar: [c.ciudad, c.estadoUS ? nombreEstado(c.estadoUS) : ''].filter(Boolean).join(', '),
+    crm: c.crm ? true : false,
+    pausadoHasta: c.pausadoHasta || null,
+    actualizado: c.actualizado || 0,
+    ultimo: ult ? { rol: ult.rol, texto: ult.texto.slice(0, 160), t: ult.t } : null
   }
-
-  const activo = botActivo()
-  const interruptor = `<div class="card fila"><div><strong>${activo ? 'Bot encendido' : 'Bot apagado'}</strong><div class="muted">${activo ? 'Contesta a los prospectos nuevos' : 'No contesta a nadie'}</div></div>
-${boton(activo ? 'bot_off' : 'bot_on', activo ? 'Apagar' : 'Encender', '', activo ? '' : 'primario')}</div>`
-
-  const proximas = listarCitas().filter(c => c.estado === 'agendada' && c.fin > DateTime.now().toISO())
-  const citas = proximas.length
-    ? proximas.map(c => `<div class="card"><div class="fila"><strong>${esc(c.nombre)}</strong><span class="muted">${esc(fechaISO(c.inicio))}</span></div>
-<div class="muted">📍 ${esc(c.direccion)}</div>${c.notas ? `<div class="muted">📝 ${esc(c.notas)}</div>` : ''}
-<div class="acciones">${c.telefono ? `<a class="btn" href="https://wa.me/${esc(c.telefono)}">WhatsApp</a>` : ''}<a class="btn" href="https://maps.apple.com/?q=${encodeURIComponent(c.direccion)}">Mapa</a></div></div>`).join('')
-    : '<div class="card muted">Todavía no hay citas agendadas por el bot.</div>'
-
-  const chats = listarChats().filter(c => c.estado !== 'conocido').slice(0, 60)
-  const lista = chats.length
-    ? chats.map(c => {
-      const [et, cl] = ETIQUETAS[c.estado] || [c.estado, 'mute']
-      const ult = c.historial[c.historial.length - 1]
-      return `<a href="/chat?id=${encodeURIComponent(c.id)}" style="text-decoration:none;color:inherit"><div class="card">
-<div class="fila"><strong>${esc(c.nombre || '+' + (c.telefono || c.id.split('@')[0]))}</strong><span class="chip ${cl}">${et}</span></div>
-<div class="muted">${esc((ult?.texto || '').slice(0, 90))}</div><div class="muted">${fecha(c.actualizado)}${c.origen ? ' · ' + esc(c.origen) : ''}</div></div></a>`
-    }).join('')
-    : '<div class="card muted">Cuando alguien escriba desde una campaña, aparecerá aquí.</div>'
-
-  return pagina('Agente de citas', `<h1>Agente de citas</h1>${wa}${interruptor}<h2>Próximas citas</h2>${citas}<h2>Conversaciones</h2>${lista}
-<h2>Sesión</h2><div class="card fila"><span class="muted">Desvincular este número del bot</span>${boton('desvincular', 'Desvincular')}</div>`,
-  estadoWA.conectado ? 60 : 15)
 }
 
-function vistaChat (id) {
-  const c = obtenerChat(id)
-  if (!c) return pagina('No encontrado', '<p>Chat no encontrado. <a href="/">Volver</a></p>')
-  const [et, cl] = ETIQUETAS[c.estado] || [c.estado, 'mute']
-  const burbujas = c.historial.map(h => `<div class="burbuja ${h.rol}"><div class="muted" style="font-size:12px">${h.rol === 'cliente' ? 'Cliente' : h.rol === 'bot' ? 'Bot' : 'Tú'} · ${fecha(h.t)}</div>${esc(h.texto)}</div>`).join('')
-  const acciones = [
-    c.estado !== 'prospecto' ? boton('activar', 'Que el bot conteste', id, 'primario') : '',
-    c.estado === 'prospecto' ? boton('pausar', 'Pausar bot aquí', id) : '',
-    c.estado !== 'conocido' ? boton('ignorar', 'Ignorar chat', id) : ''
-  ].join('')
-  return pagina(c.nombre || 'Chat', `<p><a href="/">← Volver</a></p>
-<div class="card"><div class="fila"><strong>${esc(c.nombre || '')}</strong><span class="chip ${cl}">${et}</span></div>
-<div class="muted">${c.telefono ? `<a href="https://wa.me/${esc(c.telefono)}">+${esc(c.telefono)}</a>` : esc(c.id)}${c.anuncio ? ' · Anuncio: ' + esc(c.anuncio) : ''}</div>
-<div class="acciones">${acciones}</div></div>${burbujas || '<p class="muted">Sin mensajes guardados.</p>'}`)
+function datosEstado () {
+  const chats = listarChats().filter(c => c.estado !== 'conocido')
+  const inicioHoy = DateTime.now().setZone(zona()).startOf('day').toMillis()
+  const inicioSemana = DateTime.now().setZone(zona()).startOf('week').toMillis()
+  const ahoraISO = DateTime.now().toISO()
+  const citas = listarCitas().filter(c => c.estado === 'agendada')
+  return {
+    wa: {
+      conectado: estadoWA.conectado,
+      numero: estadoWA.numero,
+      desde: estadoWA.desde,
+      codigo: estadoWA.conectado ? '' : estadoWA.codigoVinculacion,
+      qr: estadoWA.conectado ? '' : estadoWA.qrImagen,
+      error: estadoWA.conectado ? '' : estadoWA.ultimoError
+    },
+    botActivo: botActivo(),
+    zona: zona(),
+    zonas: listaZonas().map(z => ({ id: z.id, nombre: z.nombre || z.id })),
+    resumen: {
+      prospectosHoy: chats.filter(c => (c.creado || 0) >= inicioHoy).length,
+      prospectosSemana: chats.filter(c => (c.creado || 0) >= inicioSemana).length,
+      citasSemana: citas.filter(c => (c.creada || 0) >= inicioSemana).length,
+      citasProximas: citas.filter(c => c.fin > ahoraISO).length,
+      teToca: chats.filter(c => c.estado === 'humano').length
+    },
+    pendientes: chats.filter(c => c.estado === 'humano').slice(0, 10).map(resumenChat),
+    proximas: citas.filter(c => c.fin > ahoraISO).slice(0, 3)
+  }
 }
 
-function vistaEntrar (error = '') {
-  if (!config.panelClave) return pagina('Configurar', '<h1>Falta PANEL_CLAVE</h1><p>Agrega la variable PANEL_CLAVE en Railway para proteger este panel.</p>')
-  return pagina('Entrar', `<h1>Agente de citas</h1><form method="post" action="/entrar" class="card">
-<label>Clave del panel<input type="password" name="clave" autocomplete="current-password" autofocus></label>
-${error ? `<p class="alert">${esc(error)}</p>` : ''}<button class="primario">Entrar</button></form>`)
+// ---------- página de entrada ----------
+
+function paginaEntrar (error = '') {
+  const sinClave = !config.panelClave
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17352F"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Citas"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest"><title>Agente de citas</title>
+<style>
+:root{--fondo:#17352F;--tinta:#F4F6F4;--suave:#A9BDB6;--yema:#F2B33D}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--fondo);color:var(--tinta);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;display:grid;place-items:center;padding:24px}
+form{width:100%;max-width:360px;text-align:center}img{width:84px;height:84px;border-radius:20px}
+h1{font-size:26px;margin:18px 0 6px;letter-spacing:-.01em}p{color:var(--suave);margin:0 0 24px}
+input{width:100%;font-size:17px;padding:14px 16px;border-radius:14px;border:1px solid #2E5249;background:#0F2723;color:var(--tinta);outline:none}
+input:focus{border-color:var(--yema)}button{width:100%;margin-top:12px;font-size:17px;font-weight:600;padding:14px;border:0;border-radius:14px;background:var(--yema);color:#1B1A14}
+.error{color:#FFB4A8;margin-top:12px}
+</style></head><body>
+<form method="post" action="/entrar">
+<img src="/apple-touch-icon.png" alt="">
+<h1>Agente de citas</h1>
+${sinClave
+    ? '<p>Falta la variable PANEL_CLAVE en Railway.</p>'
+    : `<p>Escribe la clave del panel</p>
+<input type="password" name="clave" autocomplete="current-password" autofocus aria-label="Clave del panel">
+<button>Entrar</button>${error ? `<div class="error">${esc(error)}</div>` : ''}`}
+</form></body></html>`
 }
+
+// ---------- servidor ----------
 
 export function iniciarPanel () {
   const servidor = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x')
-    const enviar = (html, codigo = 200, extra = {}) => { res.writeHead(codigo, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extra }); res.end(html) }
+    const html = (h, codigo = 200, extra = {}) => { res.writeHead(codigo, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extra }); res.end(h) }
+    const json = (obj, codigo = 200) => { res.writeHead(codigo, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)) }
+    const png = (b64) => { res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }); res.end(Buffer.from(b64, 'base64')) }
     const ir = (a, extra = {}) => { res.writeHead(303, { Location: a, ...extra }); res.end() }
 
     try {
+      // públicos
       if (url.pathname === '/salud') { res.writeHead(200); return res.end('ok') }
+      if (url.pathname === '/manifest.webmanifest') { res.writeHead(200, { 'Content-Type': 'application/manifest+json' }); return res.end(MANIFIESTO) }
+      if (url.pathname === '/apple-touch-icon.png') return png(ICONO_180)
+      if (url.pathname === '/icono-192.png') return png(ICONO_192)
+      if (url.pathname === '/icono-512.png') return png(ICONO_512)
 
       if (url.pathname === '/entrar' && req.method === 'POST') {
         const { clave } = await leerCuerpo(req)
         if (config.panelClave && clave === config.panelClave) {
           return ir('/', { 'Set-Cookie': `panel=${ficha()}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000` })
         }
-        return enviar(vistaEntrar('Clave incorrecta'), 401)
+        return html(paginaEntrar('Clave incorrecta'), 401)
+      }
+      if (url.pathname === '/salir') return ir('/', { 'Set-Cookie': 'panel=; Path=/; Max-Age=0' })
+
+      const ok = autorizado(req)
+      if (url.pathname.startsWith('/api/') && !ok) return json({ error: 'sin_sesion' }, 401)
+      if (!ok) return html(paginaEntrar())
+
+      // ---- API ----
+      if (url.pathname === '/api/estado') return json(datosEstado())
+
+      if (url.pathname === '/api/chats') {
+        return json({ chats: listarChats().filter(c => c.estado !== 'conocido').slice(0, 200).map(resumenChat) })
       }
 
-      if (!autorizado(req)) return enviar(vistaEntrar())
+      if (url.pathname === '/api/chat') {
+        const c = obtenerChat(url.searchParams.get('id'))
+        if (!c) return json({ error: 'no_encontrado' }, 404)
+        return json({
+          chat: { ...resumenChat(c), historial: c.historial },
+          citas: listarCitas().filter(x => x.chatId === c.id)
+        })
+      }
 
-      if (url.pathname === '/accion' && req.method === 'POST') {
+      if (url.pathname === '/api/citas') return json({ citas: listarCitas() })
+
+      if (url.pathname === '/api/accion' && req.method === 'POST') {
         const { accion, id } = await leerCuerpo(req)
+        const existe = id && obtenerChat(id)
         if (accion === 'bot_on') cambiarBotActivo(true)
-        if (accion === 'bot_off') cambiarBotActivo(false)
-        if (accion === 'activar' && obtenerChat(id)) crearOActualizarChat(id, { estado: 'prospecto', pausadoHasta: null })
-        if (accion === 'pausar' && obtenerChat(id)) crearOActualizarChat(id, { estado: 'pausado', pausadoHasta: null })
-        if (accion === 'ignorar' && obtenerChat(id)) crearOActualizarChat(id, { estado: 'conocido' })
-        if (accion === 'desvincular') await desvincular()
-        return ir(id && accion !== 'ignorar' ? `/chat?id=${encodeURIComponent(id)}` : '/')
+        else if (accion === 'bot_off') cambiarBotActivo(false)
+        else if (accion === 'activar' && existe) crearOActualizarChat(id, { estado: 'prospecto', pausadoHasta: null })
+        else if (accion === 'pausar' && existe) crearOActualizarChat(id, { estado: 'pausado', pausadoHasta: null })
+        else if (accion === 'ignorar' && existe) crearOActualizarChat(id, { estado: 'conocido' })
+        else if (accion === 'desvincular') await desvincular()
+        else return json({ error: 'accion_invalida' }, 400)
+        return json({ ok: true })
       }
 
-      if (url.pathname === '/chat') return enviar(vistaChat(url.searchParams.get('id')))
-      return enviar(vistaInicio())
+      if (url.pathname === '/api/enviar' && req.method === 'POST') {
+        const { id, texto } = await leerCuerpo(req)
+        try {
+          await enviarComoTomas(id, texto)
+          return json({ ok: true })
+        } catch (e) {
+          return json({ error: e.message }, 400)
+        }
+      }
+
+      if (url.pathname.startsWith('/api/')) return json({ error: 'no_existe' }, 404)
+
+      // ---- la app ----
+      return html(APP_HTML)
     } catch (e) {
       console.error('Error en el panel', e)
-      enviar('Error: ' + esc(e.message), 500)
+      if (url.pathname.startsWith('/api/')) return json({ error: e.message }, 500)
+      html('Error: ' + esc(e.message), 500)
     }
   })
   servidor.listen(config.puerto, () => console.log(`Panel en el puerto ${config.puerto}`))

@@ -32,6 +32,35 @@
   },
   "_horarios": "Horas de inicio que el bot puede ofrecer cada día. Deja [] para no agendar ese día.",
 
+  "zonas": [
+    {
+      "id": "tx-central",
+      "nombre": "Texas Central",
+      "estados": ["TX"],
+      "ciudades": ["Temple", "Austin", "Round Rock"],
+      "palabrasAnuncio": ["Temple", "Austin", "Round Rock", "Texas Central"],
+      "zonaHoraria": "America/Chicago",
+      "atiende": "Tomás",
+      "avisarA": [],
+      "crmClaveVariable": "CRM_CLAVE_TX_CENTRAL"
+    },
+    {
+      "id": "dfw",
+      "nombre": "Dallas – Fort Worth",
+      "estados": ["TX"],
+      "ciudades": ["Dallas", "Fort Worth", "Arlington"],
+      "palabrasAnuncio": ["DFW", "Dallas", "Fort Worth"],
+      "zonaHoraria": "America/Chicago",
+      "atiende": "Tomás",
+      "avisarA": [],
+      "crmClaveVariable": "CRM_CLAVE_DFW"
+    }
+  ],
+  "_zonas": "Una zona por estado o región. ciudades: las principales (la IA entiende también las de alrededor). palabrasAnuncio: palabras que pones en el nombre o texto del anuncio para saber de qué zona viene. zonaHoraria: America/New_York (Este), America/Chicago (Centro), America/Denver (Montaña), America/Phoenix (Arizona), America/Los_Angeles (Pacífico). Puedes poner \"horarios\" propios en una zona; si no, usa los de arriba. atiende: quién va a la cita. avisarA: WhatsApp de esa persona (con 1 adelante) para que reciba los avisos de su zona. crmClaveVariable: nombre de la variable de Railway donde está la clave de integración de la cuenta de Royal Sales IA de esa zona.",
+
+  "avisarNuevoProspecto": true,
+  "_avisarNuevoProspecto": "Te manda un WhatsApp apenas alguien escribe desde una campaña, con el anuncio y la zona.",
+
   "duracionCitaMinutos": 120,
   "margenTrasladoMinutos": 30,
   "_margenTrasladoMinutos": "Tiempo libre que se respeta antes y después de cualquier evento de tu calendario (para manejar).",

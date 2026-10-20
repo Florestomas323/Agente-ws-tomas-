@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17352F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Citas">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>Agente de citas</title>
+<style>
+:root{
+  --verde:#17352F; --verde-2:#22493F; --yema:#F2B33D; --yema-suave:#FBE9C2;
+  --hoja:#2F8F5B; --rojo:#C2412D; --ambar:#A86A00;
+  --fondo:#EEF1EF; --tarjeta:#FFFFFF; --tinta:#15201C; --suave:#66756F; --linea:#DCE2DF;
+  --burbuja-cliente:#FFFFFF; --burbuja-bot:#DDEFE3; --burbuja-tu:#FBE9C2;
+  --sombra:0 1px 0 rgba(21,32,28,.06);
+  --arriba:env(safe-area-inset-top); --abajo:env(safe-area-inset-bottom);
+}
+@media (prefers-color-scheme:dark){:root{
+  --fondo:#0D1714; --tarjeta:#15231F; --tinta:#E8EEEB; --suave:#93A49D; --linea:#243631;
+  --burbuja-cliente:#1B2B26; --burbuja-bot:#1F3A2D; --burbuja-tu:#3D3216; --yema-suave:#3D3216;
+  --hoja:#5CC28C; --rojo:#FF8A75; --ambar:#E0A63A; --sombra:none;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--fondo);color:var(--tinta)}
+body{font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid var(--yema);outline-offset:2px;border-radius:8px}
+a{color:inherit}
+
+/* --- estructura --- */
+#vista{max-width:720px;margin:0 auto;padding:calc(var(--arriba) + 12px) 16px calc(var(--abajo) + 96px)}
+.titulo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 18px}
+.titulo h1{font-size:32px;line-height:1.1;letter-spacing:-.02em;margin:0;font-weight:750}
+.seccion{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:28px 0 10px}
+.suave{color:var(--suave)}
+.pequeno{font-size:14px}
+
+/* conexión */
+.estado-wa{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;padding:6px 10px;border-radius:99px;background:var(--tarjeta);box-shadow:var(--sombra)}
+.punto{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.ok{color:var(--hoja)} .alerta{color:var(--rojo)} .espera{color:var(--ambar)}
+
+/* banda "te toca a ti" — el elemento protagonista */
+.te-toca{background:var(--yema);color:#1B1A14;border-radius:22px;padding:18px 18px 8px;margin-bottom:8px}
+.te-toca h2{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+.te-toca p{margin:0 0 10px;font-size:15px;opacity:.8}
+.te-toca .fila{border-top:1px solid rgba(27,26,20,.14)}
+.te-toca .fila .prev{color:rgba(27,26,20,.72)}
+.tranquilo{border-radius:22px;padding:18px;background:var(--tarjeta);box-shadow:var(--sombra)}
+.tranquilo h2{margin:0 0 4px;font-size:20px}
+
+/* números de la semana */
+.numeros{display:flex;gap:0;margin:20px 0 4px;background:var(--tarjeta);border-radius:18px;box-shadow:var(--sombra)}
+.numeros div{flex:1;padding:14px 12px;text-align:center}
+.numeros div+div{border-left:1px solid var(--linea)}
+.numeros b{display:block;font-size:26px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.numeros span{display:block;font-size:13px;line-height:1.25;color:var(--suave)}
+
+/* listas */
+.lista{background:var(--tarjeta);border-radius:18px;box-shadow:var(--sombra);overflow:hidden}
+.fila{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left;text-decoration:none;color:inherit}
+.lista .fila+.fila{border-top:1px solid var(--linea)}
+.avatar{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:18px;background:var(--verde);color:var(--yema)}
+.te-toca .avatar{background:#1B1A14}
+.cuerpo{flex:1;min-width:0}
+.linea1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.nombre{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hora{font-size:13px;color:var(--suave);flex:none}
+.te-toca .hora{color:rgba(27,26,20,.6)}
+.prev{font-size:15px;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center}
+.zona-tag{flex:none;font-size:12px;font-weight:600;line-height:1;padding:4px 8px;border-radius:99px;background:var(--yema-suave);color:var(--tinta);margin-left:6px;white-space:nowrap}
+.filtros.zonas{margin-top:-6px}
+.vacio{padding:22px 18px;color:var(--suave);text-align:center}
+
+/* filtros */
+.filtros{display:flex;gap:8px;overflow-x:auto;margin:0 -16px 14px;padding:0 16px;scrollbar-width:none}
+.filtros::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 14px;border-radius:99px;background:var(--tarjeta);font-size:15px;font-weight:600;box-shadow:var(--sombra);color:var(--suave)}
+.chip[aria-pressed="true"]{background:var(--verde);color:#fff}
+@media (prefers-color-scheme:dark){.chip[aria-pressed="true"]{background:var(--yema);color:#1B1A14}}
+.chip .n{opacity:.7;margin-left:4px}
+
+/* citas */
+.cita{display:flex;gap:14px;padding:14px}
+.lista .cita+.cita{border-top:1px solid var(--linea)}
+.cita .dia{width:54px;flex:none;text-align:center;border-radius:12px;background:var(--fondo);padding:6px 0}
+.cita .dia small{display:block;font-size:12px;color:var(--suave);text-transform:capitalize}
+.cita .dia b{display:block;font-size:22px;line-height:1.1}
+.cita .acciones{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.boton{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:12px;font-weight:600;font-size:15px;background:var(--fondo);text-decoration:none}
+.boton.principal{background:var(--verde);color:#fff}
+@media (prefers-color-scheme:dark){.boton.principal{background:var(--yema);color:#1B1A14}}
+.boton.peligro{color:var(--rojo)}
+
+/* ajustes */
+.ajuste{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px}
+.lista .ajuste+.ajuste{border-top:1px solid var(--linea)}
+.interruptor{width:52px;height:32px;border-radius:99px;background:var(--linea);position:relative;flex:none;transition:background .2s}
+.interruptor::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.interruptor[aria-checked="true"]{background:var(--hoja)}
+.interruptor[aria-checked="true"]::after{transform:translateX(20px)}
+.codigo{font:700 34px/1.1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-align:center;padding:14px 0;color:var(--verde)}
+@media (prefers-color-scheme:dark){.codigo{color:var(--yema)}}
+.pasos{margin:0;padding:0 16px 14px 36px;color:var(--suave);font-size:15px}
+.pasos li{margin:4px 0}
+
+/* barra de pestañas */
+.pestanas{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;background:color-mix(in srgb,var(--tarjeta) 88%,transparent);backdrop-filter:saturate(1.6) blur(18px);-webkit-backdrop-filter:saturate(1.6) blur(18px);border-top:1px solid var(--linea);padding-bottom:var(--abajo)}
+.pestanas a{flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;font-size:11px;font-weight:600;color:var(--suave);text-decoration:none;position:relative}
+.pestanas a[aria-current="page"]{color:var(--verde)}
+@media (prefers-color-scheme:dark){.pestanas a[aria-current="page"]{color:var(--yema)}}
+.pestanas svg{width:26px;height:26px}
+.insignia{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--rojo);color:#fff;font-size:11px;line-height:18px;text-align:center}
+
+/* chat */
+.chat-cabeza{position:sticky;top:0;z-index:4;margin:calc(-1 * (var(--arriba) + 12px)) -16px 8px;padding:calc(var(--arriba) + 8px) 8px 10px;background:color-mix(in srgb,var(--fondo) 90%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--linea)}
+.chat-top{display:flex;align-items:center;gap:8px}
+.chat-cabeza .aviso-estado{margin:8px 8px 0}
+.atras{display:flex;align-items:center;gap:2px;font-weight:600;color:var(--verde);padding:8px;text-decoration:none}
+@media (prefers-color-scheme:dark){.atras{color:var(--yema)}}
+.chat-top .cuerpo{text-align:center}
+.chat-top .nombre{font-size:17px}
+.mas{padding:8px 10px;font-size:22px;line-height:1;color:var(--suave)}
+.aviso-estado{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0;padding:10px 12px 10px 14px;border-radius:14px;background:var(--tarjeta);box-shadow:var(--sombra);font-size:15px}
+.aviso-estado.humano{background:var(--yema);color:#1B1A14}
+.aviso-estado.humano .boton{background:rgba(27,26,20,.12)}
+.mensajes{display:flex;flex-direction:column;gap:6px;padding-bottom:8px}
+.dia-sep{align-self:center;font-size:13px;color:var(--suave);background:var(--tarjeta);padding:3px 10px;border-radius:99px;margin:10px 0 4px}
+.msg{max-width:82%;padding:8px 12px 6px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word;font-size:16px;line-height:1.35;box-shadow:var(--sombra)}
+.msg.cliente{align-self:flex-start;background:var(--burbuja-cliente);border-bottom-left-radius:6px}
+.msg.bot{align-self:flex-end;background:var(--burbuja-bot);border-bottom-right-radius:6px}
+.msg.tomas{align-self:flex-end;background:var(--burbuja-tu);border-bottom-right-radius:6px}
+.msg .meta{display:block;text-align:right;font-size:11px;color:var(--suave);margin-top:2px}
+.msg .quien{font-size:12px;font-weight:700;margin-bottom:1px;display:block}
+.msg.bot .quien{color:var(--hoja)} .msg.tomas .quien{color:var(--ambar)}
+.redactar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:color-mix(in srgb,var(--tarjeta) 92%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--linea);padding:8px 12px calc(var(--abajo) + 8px)}
+.redactar form{max-width:720px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
+.redactar textarea{flex:1;resize:none;font:inherit;font-size:16px;line-height:1.35;max-height:140px;padding:9px 14px;border-radius:20px;border:1px solid var(--linea);background:var(--fondo);color:var(--tinta)}
+.enviar{width:40px;height:40px;border-radius:50%;background:var(--verde);color:#fff;display:grid;place-items:center;flex:none}
+.enviar:disabled{opacity:.4}
+@media (prefers-color-scheme:dark){.enviar{background:var(--yema);color:#1B1A14}}
+.redactar .nota{max-width:720px;margin:0 auto 6px;font-size:12px;color:var(--suave);text-align:center}
+
+/* hoja de acciones */
+.hoja-fondo{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center}
+.hoja{width:100%;max-width:520px;margin:0 8px calc(var(--abajo) + 8px);display:flex;flex-direction:column;gap:8px}
+.hoja .grupo{background:var(--tarjeta);border-radius:16px;overflow:hidden}
+.hoja button,.hoja a{display:block;width:100%;padding:16px;text-align:center;font-size:18px;color:var(--verde);text-decoration:none}
+@media (prefers-color-scheme:dark){.hoja button,.hoja a{color:var(--yema)}}
+.hoja .grupo>*+*{border-top:1px solid var(--linea)}
+.hoja .rojo{color:var(--rojo)!important}
+.hoja .cancelar{font-weight:700}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--abajo) + 90px);transform:translateX(-50%);background:var(--verde);color:#fff;padding:10px 16px;border-radius:12px;font-size:15px;z-index:20;max-width:90vw}
+@media (prefers-reduced-motion:no-preference){.hoja{animation:sube .22s ease-out}@keyframes sube{from{transform:translateY(30px);opacity:0}}}
+</style>
+</head>
+<body>
+<main id="vista" aria-live="polite"></main>
+<nav class="pestanas" id="pestanas" aria-label="Secciones">
+  <a href="#/inicio" data-tab="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Hoy</a>
+  <a href="#/chats" data-tab="chats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/></svg>Chats<span class="insignia" id="insignia" hidden></span></a>
+  <a href="#/citas" data-tab="citas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Citas</a>
+  <a href="#/ajustes" data-tab="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>Ajustes</a>
+</nav>
+<div id="capa"></div>
+
+<script>
+(() => {
+  'use strict'
+  const $ = (s, el = document) => el.querySelector(s)
+  const vista = $('#vista')
+  const capa = $('#capa')
+  let estado = null
+  let zona = 'America/Chicago'
+  let filtro = 'todos'
+  let filtroZona = 'todas'
+  let firmaChat = ''
+
+  // ---------- utilidades ----------
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  const fmt = (opts) => new Intl.DateTimeFormat('es', { timeZone: zona, ...opts })
+  const diaClave = (d) => fmt({ year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+  function horaCorta (t) {
+    if (!t) return ''
+    const d = new Date(t), hoy = new Date(), ayer = new Date(Date.now() - 864e5)
+    if (diaClave(d) === diaClave(hoy)) return fmt({ hour: 'numeric', minute: '2-digit' }).format(d)
+    if (diaClave(d) === diaClave(ayer)) return 'Ayer'
+    return fmt({ day: 'numeric', month: 'short' }).format(d)
+  }
+  const soloHora = (t) => fmt({ hour: 'numeric', minute: '2-digit' }).format(new Date(t))
+  const diaLargo = (t) => {
+    const d = new Date(t)
+    if (diaClave(d) === diaClave(new Date())) return 'Hoy'
+    if (diaClave(d) === diaClave(new Date(Date.now() - 864e5))) return 'Ayer'
+    return fmt({ weekday: 'long', day: 'numeric', month: 'long' }).format(d)
+  }
+  const nombreDe = (c) => c.nombre || (c.telefono ? '+' + c.telefono : 'Sin nombre')
+  const inicial = (c) => (c.nombre || '#').trim().charAt(0).toUpperCase() || '#'
+  const ETIQUETA = {
+    prospecto: ['Bot contestando', 'ok'],
+    pausado: ['En pausa', 'espera'],
+    humano: ['Te toca a ti', 'alerta'],
+    conocido: ['Ignorado', 'suave']
+  }
+
+  async function api (ruta, cuerpo) {
+    const op = cuerpo ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) } : {}
+    const r = await fetch(ruta, { ...op, credentials: 'same-origin', cache: 'no-store' })
+    if (r.status === 401) { location.href = '/'; throw new Error('Sin sesión') }
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(j.error || 'Error ' + r.status)
+    return j
+  }
+
+  function aviso (texto) {
+    const t = document.createElement('div')
+    t.className = 'toast'; t.textContent = texto; t.setAttribute('role', 'status')
+    document.body.appendChild(t)
+    setTimeout(() => t.remove(), 2600)
+  }
+
+  function hoja (opciones) {
+    capa.innerHTML = `<div class="hoja-fondo" id="hf"><div class="hoja" role="dialog" aria-modal="true">
+      <div class="grupo">${opciones.map((o, i) => o.href
+        ? `<a href="${esc(o.href)}" target="_blank" rel="noopener">${esc(o.texto)}</a>`
+        : `<button data-i="${i}" class="${o.rojo ? 'rojo' : ''}">${esc(o.texto)}</button>`).join('')}</div>
+      <div class="grupo"><button class="cancelar" data-cerrar>Cancelar</button></div></div></div>`
+    const cerrar = () => { capa.innerHTML = '' }
+    $('#hf').addEventListener('click', (e) => {
+      if (e.target.id === 'hf' || e.target.hasAttribute('data-cerrar')) return cerrar()
+      const i = e.target.getAttribute('data-i')
+      if (i != null) { cerrar(); opciones[+i].accion() }
+    })
+  }
+
+  function filaChat (c) {
+    const [et, cl] = ETIQUETA[c.estado] || ['', 'suave']
+    const u = c.ultimo
+    const quien = u ? (u.rol === 'bot' ? 'Bot: ' : u.rol === 'tomas' ? 'Tú: ' : '') : ''
+    return `<a class="fila" href="#/chat/${encodeURIComponent(c.id)}">
+      <span class="avatar" aria-hidden="true">${esc(inicial(c))}</span>
+      <span class="cuerpo">
+        <span class="linea1"><span style="display:flex;align-items:center;min-width:0"><span class="nombre">${esc(nombreDe(c))}</span>${c.zonaNombre ? `<span class="zona-tag">${esc(c.zonaNombre)}</span>` : ''}</span><span class="hora">${esc(horaCorta(c.actualizado))}</span></span>
+        <span class="prev"><span class="punto ${cl}" title="${esc(et)}"></span><span style="overflow:hidden;text-overflow:ellipsis">${esc(quien + (u ? u.texto : 'Sin mensajes'))}</span></span>
+      </span></a>`
+  }
+
+  function filaCita (c) {
+    const d = new Date(c.inicio)
+    // la cita se muestra en la hora local de su zona (si es de otro estado, se aclara)
+    const f = (o) => new Intl.DateTimeFormat('es', { timeZone: c.zonaHoraria || zona, ...o }).format(d)
+    const otraHora = c.zonaHoraria && c.zonaHoraria !== zona
+    return `<div class="cita">
+      <div class="dia"><small>${esc(f({ weekday: 'short' }))}</small><b>${esc(f({ day: 'numeric' }))}</b><small>${esc(f({ month: 'short' }))}</small></div>
+      <div class="cuerpo">
+        <div class="linea1"><span style="display:flex;align-items:center;min-width:0"><span class="nombre">${esc(c.nombre)}</span>${c.zonaNombre ? `<span class="zona-tag">${esc(c.zonaNombre)}</span>` : ''}</span><span class="hora">${esc(f({ hour: 'numeric', minute: '2-digit' }))}${otraHora ? ' local' : ''}</span></div>
+        ${c.atiende && c.atiende !== 'Tomás' ? `<div class="suave pequeno">Atiende ${esc(c.atiende)}</div>` : ''}
+        <div class="suave pequeno">${esc(c.direccion)}</div>
+        ${c.notas ? `<div class="suave pequeno">${esc(c.notas)}</div>` : ''}
+        <div class="acciones">
+          ${c.chatId ? `<a class="boton" href="#/chat/${encodeURIComponent(c.chatId)}">Ver chat</a>` : ''}
+          ${c.telefono ? `<a class="boton" href="https://wa.me/${esc(c.telefono)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+          <a class="boton" href="https://maps.apple.com/?q=${encodeURIComponent(c.direccion)}" target="_blank" rel="noopener">Cómo llegar</a>
+        </div>
+      </div></div>`
+  }
+
+  function pastillaWA () {
+    if (!estado) return ''
+    if (estado.wa.conectado) return '<span class="estado-wa ok"><span class="punto"></span>Conectado</span>'
+    if (estado.wa.codigo || estado.wa.qr) return '<a class="estado-wa alerta" href="#/ajustes"><span class="punto"></span>Falta vincular</a>'
+    return '<span class="estado-wa espera"><span class="punto"></span>Conectando…</span>'
+  }
+
+  // ---------- vistas ----------
+  async function verInicio () {
+    estado = await api('/api/estado'); zona = estado.zona || zona
+    const r = estado.resumen
+    const pend = estado.pendientes
+    vista.innerHTML = `
+      <header class="titulo"><h1>Hoy</h1>${pastillaWA()}</header>
+      ${!estado.botActivo ? '<div class="aviso-estado"><span>El bot está apagado y no contesta a nadie.</span><button class="boton principal" data-bot="on">Encender</button></div>' : ''}
+      ${pend.length
+        ? `<section class="te-toca"><h2>${pend.length === 1 ? '1 persona te espera' : pend.length + ' personas te esperan'}</h2>
+            <p>El bot les pasó la conversación a ti.</p>
+            ${pend.map(filaChat).join('')}</section>`
+        : `<section class="tranquilo"><h2>Nadie te está esperando</h2>
+            <div class="suave">${estado.botActivo ? 'El bot está atendiendo a los prospectos.' : 'Enciende el bot para que atienda a los prospectos.'}</div></section>`}
+      <div class="numeros">
+        <div><b>${r.prospectosHoy}</b><span>prospectos hoy</span></div>
+        <div><b>${r.prospectosSemana}</b><span>esta semana</span></div>
+        <div><b>${r.citasSemana}</b><span>citas esta semana</span></div>
+      </div>
+      <h2 class="seccion">Próximas citas</h2>
+      <div class="lista">${estado.proximas.length ? estado.proximas.map(filaCita).join('') : '<div class="vacio">Cuando el bot agende una demostración, aparecerá aquí.</div>'}</div>`
+    insignia()
+  }
+
+  async function verChats () {
+    const { chats } = await api('/api/chats')
+    const cuenta = (f) => chats.filter(f).length
+    const filtros = [
+      ['todos', 'Todos', () => true],
+      ['humano', 'Te toca', c => c.estado === 'humano'],
+      ['prospecto', 'Bot', c => c.estado === 'prospecto'],
+      ['pausado', 'En pausa', c => c.estado === 'pausado']
+    ]
+    const actual = filtros.find(f => f[0] === filtro) || filtros[0]
+    const zonas = [...new Set(chats.map(c => c.zonaNombre).filter(Boolean))]
+    const hayZona = (c) => filtroZona === 'todas' || (filtroZona === 'sin' ? !c.zonaNombre : c.zonaNombre === filtroZona)
+    if (filtroZona !== 'todas' && filtroZona !== 'sin' && !zonas.includes(filtroZona)) filtroZona = 'todas'
+    const lista = chats.filter(actual[2]).filter(hayZona)
+    const chipsZona = zonas.length
+      ? `<div class="filtros zonas" role="group" aria-label="Filtrar por zona">
+          ${[['todas', 'Todas las zonas'], ...zonas.map(z => [z, z]), ...(chats.some(c => !c.zonaNombre) ? [['sin', 'Sin zona']] : [])]
+            .map(([k, t]) => `<button class="chip" data-zona="${esc(k)}" aria-pressed="${k === filtroZona}">${esc(t)}</button>`).join('')}
+        </div>`
+      : ''
+    vista.innerHTML = `
+      <header class="titulo"><h1>Chats</h1>${pastillaWA()}</header>
+      <div class="filtros" role="group" aria-label="Filtrar chats">
+        ${filtros.map(([k, t, f]) => `<button class="chip" data-filtro="${k}" aria-pressed="${k === filtro}">${t}<span class="n">${cuenta(f)}</span></button>`).join('')}
+      </div>
+      ${chipsZona}
+      <div class="lista">${lista.length ? lista.map(filaChat).join('') : `<div class="vacio">${filtro === 'todos' ? 'Cuando alguien escriba desde un anuncio, su chat aparecerá aquí.' : 'No hay chats en este grupo.'}</div>`}</div>`
+  }
+
+  async function verChat (id, refresco) {
+    let datos
+    try { datos = await api('/api/chat?id=' + encodeURIComponent(id)) } catch (e) {
+      vista.innerHTML = `<p><a class="atras" href="#/chats">‹ Chats</a></p><div class="vacio">Este chat ya no existe.</div>`; return
+    }
+    const c = datos.chat
+    const firma = c.estado + '|' + c.historial.length + '|' + (c.historial.at(-1)?.t || 0)
+    if (refresco && firma === firmaChat) return
+    firmaChat = firma
+
+    const borrador = $('#texto')?.value || ''
+    const escribiendo = document.activeElement?.id === 'texto'
+    const pegadoAbajo = !refresco || (innerHeight + scrollY >= document.body.scrollHeight - 120)
+
+    let avisoEstado = ''
+    if (c.estado === 'prospecto') avisoEstado = `<div class="aviso-estado"><span><span class="punto ok" style="display:inline-block;margin-right:6px"></span>El bot está contestando</span><button class="boton" data-chat-accion="pausar">Pausar</button></div>`
+    else if (c.estado === 'pausado') avisoEstado = `<div class="aviso-estado"><span>Bot en pausa${c.pausadoHasta ? ' hasta ' + esc(diaLargo(c.pausadoHasta).toLowerCase() === 'hoy' ? soloHora(c.pausadoHasta) : diaLargo(c.pausadoHasta) + ' ' + soloHora(c.pausadoHasta)) : ''}</span><button class="boton principal" data-chat-accion="activar">Que conteste el bot</button></div>`
+    else if (c.estado === 'humano') avisoEstado = `<div class="aviso-estado humano"><span><b>Te toca a ti.</b> El bot ya no contesta aquí.</span><button class="boton" data-chat-accion="activar">Devolver al bot</button></div>`
+    else avisoEstado = `<div class="aviso-estado"><span>El bot ignora este chat</span><button class="boton principal" data-chat-accion="activar">Que conteste el bot</button></div>`
+
+    let ultimoDia = ''
+    const mensajes = c.historial.map(m => {
+      const dia = diaClave(new Date(m.t))
+      const sep = dia !== ultimoDia ? `<div class="dia-sep">${esc(diaLargo(m.t))}</div>` : ''
+      ultimoDia = dia
+      const quien = m.rol === 'bot' ? '<span class="quien">Bot</span>' : m.rol === 'tomas' ? '<span class="quien">Tú</span>' : ''
+      return `${sep}<div class="msg ${esc(m.rol)}">${quien}${esc(m.texto)}<span class="meta">${esc(soloHora(m.t))}</span></div>`
+    }).join('')
+
+    const citas = datos.citas.filter(x => x.estado === 'agendada')
+    vista.innerHTML = `
+      <div class="chat-cabeza"><div class="chat-top">
+        <a class="atras" href="#/chats" aria-label="Volver a chats"><svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2 2 10l8 8"/></svg>Chats</a>
+        <div class="cuerpo"><div class="nombre">${esc(nombreDe(c))}</div><div class="suave pequeno">${[c.telefono ? '+' + esc(c.telefono) : '', c.zonaNombre ? esc(c.zonaNombre) : '', c.lugar ? esc(c.lugar) : ''].filter(Boolean).join(' · ')}</div></div>
+        <button class="mas" id="mas" aria-label="Más opciones">•••</button>
+      </div>
+      ${avisoEstado}</div>
+      ${c.anuncio || c.origen ? `<div class="suave pequeno" style="margin:-4px 0 10px">${c.origen === 'anuncio' ? 'Llegó por el anuncio' + (c.anuncio ? ': ' + esc(c.anuncio) : '') : 'Llegó por: ' + esc(c.origen)}${c.crm ? ' · enviado al CRM' : ''}</div>` : ''}
+      ${citas.length ? `<div class="lista" style="margin-bottom:12px">${citas.map(filaCita).join('')}</div>` : ''}
+      <div class="mensajes">${mensajes || '<div class="vacio">Sin mensajes guardados.</div>'}</div>
+      <div class="redactar">
+        <div class="nota">Si escribes aquí, el bot se pausa en este chat.</div>
+        <form id="form-enviar"><textarea id="texto" rows="1" placeholder="Escribe como Tomás…" aria-label="Mensaje"></textarea>
+        <button class="enviar" id="btn-enviar" aria-label="Enviar" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12 2-12 2z"/></svg></button></form>
+      </div>`
+    vista.style.paddingBottom = 'calc(var(--abajo) + 130px)'
+
+    const ta = $('#texto'), btn = $('#btn-enviar')
+    ta.value = borrador
+    if (escribiendo) ta.focus()
+    const ajustar = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; btn.disabled = !ta.value.trim() }
+    ajustar()
+    ta.addEventListener('input', ajustar)
+    $('#form-enviar').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const texto = ta.value.trim(); if (!texto) return
+      btn.disabled = true
+      try { await api('/api/enviar', { id: c.id, texto }); ta.value = ''; firmaChat = ''; await verChat(id) } catch (err) { aviso('No se envió: ' + err.message); btn.disabled = false }
+    })
+    $('#mas').addEventListener('click', () => {
+      const ops = []
+      if (c.telefono) ops.push({ texto: 'Abrir en WhatsApp', href: 'https://wa.me/' + c.telefono })
+      if (c.estado !== 'prospecto') ops.push({ texto: 'Que conteste el bot', accion: () => accionChat(c.id, 'activar') })
+      if (c.estado === 'prospecto') ops.push({ texto: 'Pausar el bot aquí', accion: () => accionChat(c.id, 'pausar') })
+      if (c.estado !== 'conocido') ops.push({ texto: 'Ignorar este chat', rojo: true, accion: () => accionChat(c.id, 'ignorar', true) })
+      hoja(ops)
+    })
+    if (pegadoAbajo) requestAnimationFrame(() => scrollTo(0, document.body.scrollHeight))
+  }
+
+  async function verCitas () {
+    const { citas } = await api('/api/citas')
+    const ahora = new Date().toISOString()
+    const vigentes = citas.filter(c => c.estado === 'agendada')
+    const proximas = vigentes.filter(c => c.fin > ahora)
+    const pasadas = vigentes.filter(c => c.fin <= ahora).reverse()
+    vista.innerHTML = `
+      <header class="titulo"><h1>Citas</h1></header>
+      <div class="lista">${proximas.length ? proximas.map(filaCita).join('') : '<div class="vacio">No hay demostraciones próximas.</div>'}</div>
+      ${pasadas.length ? `<h2 class="seccion">Anteriores</h2><div class="lista">${pasadas.slice(0, 30).map(filaCita).join('')}</div>` : ''}`
+  }
+
+  async function verAjustes () {
+    estado = await api('/api/estado'); zona = estado.zona || zona
+    const w = estado.wa
+    const instalada = navigator.standalone || matchMedia('(display-mode: standalone)').matches
+    let bloqueWA
+    if (w.conectado) {
+      bloqueWA = `<div class="ajuste"><div><div class="nombre">WhatsApp conectado</div><div class="suave pequeno">+${esc(w.numero)} · desde ${esc(horaCorta(w.desde))}</div></div><span class="punto ok"></span></div>
+        <div class="ajuste"><div class="suave pequeno">Desvincula si quieres usar otro número.</div><button class="boton peligro" id="desvincular">Desvincular</button></div>`
+    } else if (w.codigo || w.qr) {
+      bloqueWA = `<div style="padding:14px 16px 0"><div class="nombre alerta">Falta vincular WhatsApp</div></div>
+        ${w.codigo ? `<div class="codigo">${esc(w.codigo)}</div>
+        <ol class="pasos"><li>Abre WhatsApp Business en tu iPhone.</li><li>Ajustes → Dispositivos vinculados → Vincular un dispositivo.</li><li>Toca “Vincular con el número de teléfono” y escribe este código.</li></ol>` : ''}
+        ${w.qr ? `<details style="padding:0 16px 14px"><summary class="pequeno">O escanear QR desde otro teléfono</summary><img src="${w.qr}" width="240" height="240" alt="Código QR" style="margin-top:10px"></details>` : ''}`
+    } else {
+      bloqueWA = `<div class="ajuste"><div><div class="nombre espera">Conectando con WhatsApp…</div><div class="suave pequeno">${esc(w.error)}</div></div></div>`
+    }
+    vista.innerHTML = `
+      <header class="titulo"><h1>Ajustes</h1></header>
+      <div class="lista">
+        <div class="ajuste"><div><div class="nombre">Bot encendido</div><div class="suave pequeno">${estado.botActivo ? 'Contesta a los prospectos nuevos' : 'No contesta a nadie'}</div></div>
+          <button class="interruptor" role="switch" aria-checked="${estado.botActivo}" aria-label="Bot encendido" id="interruptor"></button></div>
+      </div>
+      <h2 class="seccion">WhatsApp</h2>
+      <div class="lista">${bloqueWA}</div>
+      ${instalada ? '' : `<h2 class="seccion">Instalar en tu pantalla de inicio</h2>
+      <div class="lista"><ol class="pasos" style="padding-top:14px"><li>Abre esta página en Safari.</li><li>Toca el botón Compartir.</li><li>Elige “Agregar a pantalla de inicio”.</li><li>Abre la app desde el ícono y entra con tu clave una vez.</li></ol></div>`}
+      <h2 class="seccion">Cambiar cómo habla el bot</h2>
+      <div class="lista"><div class="ajuste"><div class="suave pequeno">Los horarios, la oferta y el estilo se editan en GitHub: <b>negocio.md</b>, <b>estilo.md</b> y <b>ajustes.json</b>.</div></div></div>
+      <div style="margin-top:28px;text-align:center"><a class="boton" href="/salir">Cerrar sesión</a></div>`
+    $('#interruptor').addEventListener('click', async (e) => {
+      const nuevo = e.currentTarget.getAttribute('aria-checked') !== 'true'
+      e.currentTarget.setAttribute('aria-checked', String(nuevo))
+      try { await api('/api/accion', { accion: nuevo ? 'bot_on' : 'bot_off' }); aviso(nuevo ? 'Bot encendido' : 'Bot apagado'); verAjustes() } catch (err) { aviso(err.message); verAjustes() }
+    })
+    $('#desvincular')?.addEventListener('click', () => hoja([{ texto: 'Desvincular WhatsApp', rojo: true, accion: async () => { await api('/api/accion', { accion: 'desvincular' }); aviso('WhatsApp desvinculado'); setTimeout(verAjustes, 1500) } }]))
+  }
+
+  async function accionChat (id, accion, volver) {
+    try {
+      await api('/api/accion', { accion, id })
+      aviso({ activar: 'El bot contestará este chat', pausar: 'Bot en pausa en este chat', ignorar: 'Chat ignorado' }[accion])
+      firmaChat = ''
+      if (volver) location.hash = '#/chats'; else render(true)
+    } catch (e) { aviso(e.message) }
+  }
+
+  function insignia () {
+    const n = estado?.resumen?.teToca || 0
+    const el = $('#insignia')
+    el.hidden = !n; el.textContent = n
+  }
+
+  // ---------- navegación ----------
+  function ruta () {
+    const h = location.hash.replace(/^#\/?/, '')
+    const [tab, ...resto] = h.split('/')
+    return { tab: tab || 'inicio', id: resto.length ? decodeURIComponent(resto.join('/')) : null }
+  }
+
+  async function render (refresco) {
+    const { tab, id } = ruta()
+    const enChat = tab === 'chat'
+    $('#pestanas').hidden = enChat
+    if (!enChat) vista.style.paddingBottom = ''
+    document.querySelectorAll('.pestanas a').forEach(a => a.setAttribute('aria-current', a.dataset.tab === tab ? 'page' : 'false'))
+    try {
+      if (tab === 'chats') await verChats()
+      else if (enChat && id) await verChat(id, refresco)
+      else if (tab === 'citas') await verCitas()
+      else if (tab === 'ajustes') { if (!refresco || !estado?.wa?.conectado) await verAjustes() }
+      else await verInicio()
+      if (tab !== 'inicio' && tab !== 'ajustes' && !refresco) api('/api/estado').then(e => { estado = e; zona = e.zona || zona; insignia() }).catch(() => {})
+    } catch (e) {
+      if (!refresco) vista.innerHTML = `<div class="vacio">No se pudo cargar: ${esc(e.message)}. <button class="boton" onclick="location.reload()">Reintentar</button></div>`
+    }
+  }
+
+  vista.addEventListener('click', (e) => {
+    const f = e.target.closest('[data-filtro]')
+    if (f) { filtro = f.dataset.filtro; render(); return }
+    const fz = e.target.closest('[data-zona]')
+    if (fz) { filtroZona = fz.dataset.zona; render(); return }
+    const a = e.target.closest('[data-chat-accion]')
+    if (a) { accionChat(ruta().id, a.dataset.chatAccion); return }
+    const b = e.target.closest('[data-bot]')
+    if (b) api('/api/accion', { accion: 'bot_on' }).then(() => { aviso('Bot encendido'); render() })
+  })
+
+  addEventListener('hashchange', () => { firmaChat = ''; scrollTo(0, 0); render() })
+
+  // refresco automático cada 5 s (solo con la app visible y sin escribir en ajustes)
+  setInterval(() => {
+    if (document.hidden || capa.innerHTML) return
+    const { tab } = ruta()
+    if (tab === 'ajustes' && estado?.wa?.conectado) return
+    render(true)
+  }, 5000)
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(true) })
+
+  render()
+})()
+</script>
+</body>
+</html>

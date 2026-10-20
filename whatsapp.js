@@ -7,8 +7,9 @@ import makeWASocket, {
   DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore, generateMessageIDV2, jidNormalizedUser, Browsers
 } from 'baileys'
-import { config } from './config.js'
+import { config, ajustes } from './config.js'
 import { crearManejador } from './manejador.js'
+import { obtenerChat, crearOActualizarChat, agregarAlHistorial } from './almacen.js'
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' })
 const carpetaSesion = path.join(config.carpetaDatos, 'sesion-whatsapp')
@@ -43,12 +44,16 @@ const manejador = crearManejador({
   escribiendo: async (jid, activo) => {
     try { await sock?.sendPresenceUpdate(activo ? 'composing' : 'paused', jid) } catch {}
   },
-  avisarDueno: async (texto) => {
-    const destino = config.numeroAvisos
+  // Aviso a Tomás (NUMERO_AVISOS o "mensaje a ti mismo") y, si hay, a quien atiende la zona
+  avisar: async (texto, extras = []) => {
+    const dueno = config.numeroAvisos
       ? `${config.numeroAvisos}@s.whatsapp.net`
       : jidNormalizedUser(sock?.user?.id)
-    console.log('AVISO →', destino, texto.replace(/\n/g, ' | '))
-    try { await enviar(destino, { text: texto }) } catch (e) { console.error('No pude enviar el aviso:', e.message) }
+    const destinos = [...new Set([dueno, ...extras.map(n => `${n}@s.whatsapp.net`)].filter(Boolean))]
+    for (const destino of destinos) {
+      console.log('AVISO →', destino, texto.replace(/\n/g, ' | '))
+      try { await enviar(destino, { text: texto }) } catch (e) { console.error('No pude enviar el aviso:', e.message) }
+    }
   },
   marcarLeido: async (llaves) => { await sock?.readMessages(llaves) },
   esIdDelBot: (id) => idsDelBot.has(id),
@@ -125,6 +130,23 @@ export async function iniciarWhatsApp () {
       try { await manejador.procesar(msg, type) } catch (e) { console.error('Error procesando mensaje', e) }
     }
   })
+}
+
+/**
+ * Mensaje que Tomás escribe desde la app: se envía por WhatsApp, queda en el historial
+ * como "tomas" y el bot se pausa en ese chat (igual que si escribiera desde el teléfono).
+ */
+export async function enviarComoTomas (jid, texto) {
+  const limpio = String(texto || '').trim().slice(0, 4000)
+  if (!limpio) throw new Error('Mensaje vacío')
+  const chat = obtenerChat(jid)
+  if (!chat) throw new Error('Chat no encontrado')
+  await enviar(jid, { text: limpio })
+  if (chat.estado === 'prospecto') {
+    const horas = ajustes.pausaAlIntervenirHoras ?? 24
+    crearOActualizarChat(jid, { estado: 'pausado', pausadoHasta: Date.now() + horas * 3600_000 })
+  }
+  agregarAlHistorial(jid, 'tomas', limpio)
 }
 
 /** Desvincula este servidor de WhatsApp (para vincular otro número) */

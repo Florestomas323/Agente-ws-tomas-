@@ -1,20 +1,28 @@
-// Horarios disponibles y creación de citas.
-// Si hay CALENDARIO_URL (Apps Script), lee tu Google Calendar real y crea el evento ahí.
-// Si no, usa solo las citas que el propio bot ha agendado.
+// Horarios disponibles y creación de citas, por zona.
+// Cada zona usa su hora local y sus horarios. Si hay Apps Script (CALENDARIO_URL, o el de la zona),
+// lee el Google Calendar real de quien atiende y crea el evento ahí.
 import { DateTime } from 'luxon'
 import { config, ajustes } from './config.js'
 import { listarCitas, agregarCita } from './almacen.js'
+import { zonaHorariaDe, horariosDe, quienAtiende } from './zonas.js'
 
 const DIAS = ['', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
-const zona = () => ajustes.zonaHoraria || 'America/Chicago'
+const zonaBase = () => ajustes.zonaHoraria || 'America/Chicago'
 
-export const ahora = () => DateTime.now().setZone(zona())
+/** Hora actual en la zona horaria de una zona (o la general) */
+export const ahora = (zona) => DateTime.now().setZone(zona ? zonaHorariaDe(zona) : zonaBase())
 
-async function llamarApps (cuerpo) {
-  const r = await fetch(config.calendarioUrl, {
+function calendarioDe (zona) {
+  const url = (zona?.calendarioUrlVariable && process.env[zona.calendarioUrlVariable]) || config.calendarioUrl
+  const clave = (zona?.calendarioClaveVariable && process.env[zona.calendarioClaveVariable]) || config.calendarioClave
+  return { url, clave }
+}
+
+async function llamarApps (cal, cuerpo) {
+  const r = await fetch(cal.url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ clave: config.calendarioClave, ...cuerpo }),
+    body: JSON.stringify({ clave: cal.clave, ...cuerpo }),
     redirect: 'follow'
   })
   const texto = await r.text()
@@ -24,17 +32,17 @@ async function llamarApps (cuerpo) {
   return json
 }
 
-/** Intervalos ocupados [{inicio: DateTime, fin: DateTime}] entre dos fechas */
-async function ocupados (desde, hasta) {
+/** Intervalos ocupados de quien atiende la zona */
+async function ocupados (desde, hasta, zona) {
+  const atiende = quienAtiende(zona)
   const lista = listarCitas()
-    .filter(c => c.estado !== 'cancelada')
-    .map(c => ({ inicio: DateTime.fromISO(c.inicio, { zone: zona() }), fin: DateTime.fromISO(c.fin, { zone: zona() }) }))
+    .filter(c => c.estado !== 'cancelada' && (c.atiende || 'Tomás') === atiende)
+    .map(c => ({ inicio: DateTime.fromISO(c.inicio), fin: DateTime.fromISO(c.fin) }))
 
-  if (config.calendarioUrl) {
-    const r = await llamarApps({ accion: 'ocupado', desde: desde.toISO(), hasta: hasta.toISO() })
-    for (const e of r.eventos) {
-      lista.push({ inicio: DateTime.fromISO(e.inicio).setZone(zona()), fin: DateTime.fromISO(e.fin).setZone(zona()) })
-    }
+  const cal = calendarioDe(zona)
+  if (cal.url) {
+    const r = await llamarApps(cal, { accion: 'ocupado', desde: desde.toISO(), hasta: hasta.toISO() })
+    for (const e of r.eventos) lista.push({ inicio: DateTime.fromISO(e.inicio), fin: DateTime.fromISO(e.fin) })
   }
   return lista
 }
@@ -46,16 +54,15 @@ function chocan (inicio, fin, ocupadosLista) {
   return ocupadosLista.some(o => o.inicio < b && o.fin > a)
 }
 
-/** Todos los horarios candidatos según ajustes.json, entre desde y hasta */
-function candidatos (desde, hasta) {
+/** Horarios candidatos según los horarios de la zona, entre desde y hasta (en hora local de la zona) */
+function candidatos (desde, hasta, zona) {
+  const horarios = horariosDe(zona)
   const lista = []
   let dia = desde.startOf('day')
   while (dia <= hasta) {
-    const horas = ajustes.horarios?.[DIAS[dia.weekday]] || []
-    for (const h of horas) {
+    for (const h of horarios[DIAS[dia.weekday]] || []) {
       const [hh, mm] = h.split(':').map(Number)
-      const inicio = dia.set({ hour: hh, minute: mm || 0, second: 0, millisecond: 0 })
-      lista.push(inicio)
+      lista.push(dia.set({ hour: hh, minute: mm || 0, second: 0, millisecond: 0 }))
     }
     dia = dia.plus({ days: 1 })
   }
@@ -63,23 +70,25 @@ function candidatos (desde, hasta) {
 }
 
 /**
- * Devuelve horarios libres.
+ * Horarios libres en la hora local de la zona.
  * @param {string} [fecha] YYYY-MM-DD para un día concreto; si no, los próximos días.
+ * @param {object} [zona]
  */
-export async function horariosDisponibles (fecha) {
-  const minimo = ahora().plus({ hours: ajustes.anticipacionMinimaHoras ?? 3 })
+export async function horariosDisponibles (fecha, zona) {
+  const tz = zona ? zonaHorariaDe(zona) : zonaBase()
+  const minimo = ahora(zona).plus({ hours: ajustes.anticipacionMinimaHoras ?? 3 })
   let desde, hasta
   if (fecha) {
-    desde = DateTime.fromISO(fecha, { zone: zona() }).startOf('day')
+    desde = DateTime.fromISO(fecha, { zone: tz }).startOf('day')
     if (!desde.isValid) throw new Error('Fecha inválida, usa YYYY-MM-DD')
     hasta = desde.endOf('day')
   } else {
-    desde = ahora().startOf('day')
+    desde = ahora(zona).startOf('day')
     hasta = desde.plus({ days: (ajustes.diasAMostrar || 7) - 1 }).endOf('day')
   }
   const duracion = { minutes: ajustes.duracionCitaMinutos || 120 }
-  const ocup = await ocupados(desde.minus({ hours: 4 }), hasta.plus({ hours: 4 }))
-  return candidatos(desde, hasta)
+  const ocup = await ocupados(desde.minus({ hours: 4 }), hasta.plus({ hours: 4 }), zona)
+  return candidatos(desde, hasta, zona)
     .filter(i => i >= minimo)
     .filter(i => !chocan(i, i.plus(duracion), ocup))
 }
@@ -88,29 +97,41 @@ export function formatoHumano (dt) {
   return dt.setLocale('es').toFormat("cccc d 'de' LLLL, h:mm a")
 }
 
+/** Fecha de una cita en la hora local de su zona, con aviso si no es hora de Texas */
+export function formatoCita (cita) {
+  const tz = cita.zonaHoraria || zonaBase()
+  const dt = DateTime.fromISO(cita.inicio).setZone(tz)
+  const otra = tz !== zonaBase()
+  return formatoHumano(dt) + (otra ? ` (hora local; ${formatoHumano(dt.setZone(zonaBase())).split(', ')[1]} en Texas)` : '')
+}
+
 /** Crea la cita (revalida que el horario siga libre) */
-export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccion, ciudad, notas }) {
-  const inicio = DateTime.fromISO(inicioISO, { zone: zona() })
+export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccion, ciudad, notas, zona }) {
+  const tz = zona ? zonaHorariaDe(zona) : zonaBase()
+  const inicio = DateTime.fromISO(inicioISO, { setZone: true }).setZone(tz)
   if (!inicio.isValid) throw new Error('Fecha y hora inválidas')
-  const libres = await horariosDisponibles(inicio.toISODate())
+  const libres = await horariosDisponibles(inicio.toISODate(), zona)
   if (!libres.some(l => +l === +inicio)) {
     return { ok: false, motivo: 'Ese horario ya no está disponible. Consulta de nuevo los horarios.' }
   }
   const fin = inicio.plus({ minutes: ajustes.duracionCitaMinutos || 120 })
-  const titulo = (ajustes.calendario?.tituloCita || 'Cita — {nombre}').replace('{nombre}', nombre)
+  const titulo = (ajustes.calendario?.tituloCita || 'Cita — {nombre}').replace('{nombre}', nombre) +
+    (zona && zona.nombre ? ` (${zona.nombre})` : '')
   const descripcion = [
     `Cliente: ${nombre}`,
     telefono ? `WhatsApp: +${telefono}  (https://wa.me/${telefono})` : '',
     `Dirección: ${direccion}`,
     ciudad ? `Ciudad: ${ciudad}` : '',
+    zona ? `Zona: ${zona.nombre || zona.id} — atiende ${quienAtiende(zona)}` : '',
     notas ? `Notas: ${notas}` : '',
     '',
     'Agendada automáticamente por el asistente de WhatsApp.'
   ].filter(Boolean).join('\n')
 
   let eventoId = null
-  if (config.calendarioUrl) {
-    const r = await llamarApps({
+  const cal = calendarioDe(zona)
+  if (cal.url) {
+    const r = await llamarApps(cal, {
       accion: 'crear',
       titulo,
       inicio: inicio.toISO(),
@@ -127,6 +148,7 @@ export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccio
     id: 'c' + Date.now(),
     chatId, telefono, nombre, direccion, ciudad, notas,
     inicio: inicio.toISO(), fin: fin.toISO(),
+    zona: zona?.id || '', zonaNombre: zona?.nombre || '', zonaHoraria: tz, atiende: quienAtiende(zona),
     eventoId, estado: 'agendada', creada: Date.now()
   }
   agregarCita(cita)
