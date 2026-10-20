@@ -26,8 +26,8 @@ const MANIFIESTO = JSON.stringify({
   start_url: '/',
   scope: '/',
   display: 'standalone',
-  background_color: '#17352F',
-  theme_color: '#17352F',
+  background_color: '#F9FAFC',
+  theme_color: '#060A13',
   lang: 'es',
   icons: [
     { src: '/icono-192.png', sizes: '192x192', type: 'image/png' },
@@ -114,25 +114,30 @@ function paginaEntrar (error = '') {
   const sinClave = !config.panelClave
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#17352F"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#060A13"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Citas"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/manifest.webmanifest"><title>Agente de citas</title>
+<link rel="manifest" href="/manifest.webmanifest"><title>Agente de citas · Royal Sales IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <style>
-:root{--fondo:#17352F;--tinta:#F4F6F4;--suave:#A9BDB6;--yema:#F2B33D}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--fondo);color:var(--tinta);font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;display:grid;place-items:center;padding:24px}
-form{width:100%;max-width:360px;text-align:center}img{width:84px;height:84px;border-radius:20px}
-h1{font-size:26px;margin:18px 0 6px;letter-spacing:-.01em}p{color:var(--suave);margin:0 0 24px}
-input{width:100%;font-size:17px;padding:14px 16px;border-radius:14px;border:1px solid #2E5249;background:#0F2723;color:var(--tinta);outline:none}
-input:focus{border-color:var(--yema)}button{width:100%;margin-top:12px;font-size:17px;font-weight:600;padding:14px;border:0;border-radius:14px;background:var(--yema);color:#1B1A14}
-.error{color:#FFB4A8;margin-top:12px}
+:root{--menu:#060A13;--tarjeta:#0E121A;--tinta:#F3F5F9;--suave:#9298A5;--linea:rgba(255,255,255,.12);--primario:#2759D6}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--menu);color:var(--tinta);font:16px/1.45 "Geist",-apple-system,system-ui,sans-serif;display:grid;place-items:center;padding:24px;-webkit-font-smoothing:antialiased}
+form{width:100%;max-width:360px}
+.marca{display:flex;align-items:center;gap:12px;margin-bottom:28px}.marca img{width:48px;height:48px;border-radius:22%}
+.marca b{display:block;font-size:18px;font-weight:600;letter-spacing:-.01em}.marca small{display:block;color:var(--suave);font-size:13px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}p{color:var(--suave);margin:0 0 20px;font-size:15px}
+label{display:block;font-size:13px;color:var(--suave);margin-bottom:6px}
+input{width:100%;font:inherit;padding:12px 14px;border-radius:10px;border:1px solid var(--linea);background:var(--tarjeta);color:var(--tinta);outline:none}
+input:focus{border-color:var(--primario);box-shadow:0 0 0 3px rgba(39,89,214,.35)}
+button{width:100%;margin-top:14px;font:inherit;font-weight:600;padding:12px;border:0;border-radius:10px;background:var(--primario);color:#fff;cursor:pointer}
+.error{color:#FF8A8A;margin-top:12px;font-size:14px}
 </style></head><body>
 <form method="post" action="/entrar">
-<img src="/apple-touch-icon.png" alt="">
-<h1>Agente de citas</h1>
+<div class="marca"><img src="/apple-touch-icon.png" alt=""><div><b>Royal Sales IA</b><small>Agente de citas</small></div></div>
 ${sinClave
-    ? '<p>Falta la variable PANEL_CLAVE en Railway.</p>'
-    : `<p>Escribe la clave del panel</p>
-<input type="password" name="clave" autocomplete="current-password" autofocus aria-label="Clave del panel">
+    ? '<h1>Falta configurar</h1><p>Agrega la variable PANEL_CLAVE en Railway para proteger la app.</p>'
+    : `<h1>Entrar</h1><p>Escribe la clave de tu agente de citas.</p>
+<label for="clave">Clave</label><input id="clave" type="password" name="clave" autocomplete="current-password" autofocus>
 <button>Entrar</button>${error ? `<div class="error">${esc(error)}</div>` : ''}`}
 </form></body></html>`
 }

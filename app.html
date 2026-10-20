@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#17352F">
+<meta name="theme-color" content="#F9FAFC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#06090F" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,153 +15,157 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <title>Agente de citas</title>
 <style>
+/* Mismos tokens que Royal Sales IA (app/globals.css), convertidos a hex */
 :root{
-  --verde:#17352F; --verde-2:#22493F; --yema:#F2B33D; --yema-suave:#FBE9C2;
-  --hoja:#2F8F5B; --rojo:#C2412D; --ambar:#A86A00;
-  --fondo:#EEF1EF; --tarjeta:#FFFFFF; --tinta:#15201C; --suave:#66756F; --linea:#DCE2DF;
-  --burbuja-cliente:#FFFFFF; --burbuja-bot:#DDEFE3; --burbuja-tu:#FBE9C2;
-  --sombra:0 1px 0 rgba(21,32,28,.06);
+  --fondo:#F9FAFC; --tarjeta:#FFFFFF; --tinta:#0C0F16; --suave:#666C78; --linea:#E4E5E8; --muted:#F3F4F7;
+  --primario:#2759D6; --primario-suave:#EEF2FA; --primario-tinta:#212D47;
+  --exito:#0FA05C; --aviso:#DF911A; --aviso-suave:#FCF1E0; --aviso-tinta:#5A3A05; --peligro:#DF202E; --menu:#060A13;
+  --burbuja-cliente:#FFFFFF; --burbuja-bot:#EEF2FA; --burbuja-tu:#2759D6; --tinta-tu:#FFFFFF;
+  --radio:14px; --radio-sm:10px;
   --arriba:env(safe-area-inset-top); --abajo:env(safe-area-inset-bottom);
+  --sans:"Geist",ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root{
-  --fondo:#0D1714; --tarjeta:#15231F; --tinta:#E8EEEB; --suave:#93A49D; --linea:#243631;
-  --burbuja-cliente:#1B2B26; --burbuja-bot:#1F3A2D; --burbuja-tu:#3D3216; --yema-suave:#3D3216;
-  --hoja:#5CC28C; --rojo:#FF8A75; --ambar:#E0A63A; --sombra:none;
+  --fondo:#06090F; --tarjeta:#0E121A; --tinta:#F3F5F9; --suave:#9298A5; --linea:rgba(255,255,255,.10); --muted:#1A1F29;
+  --primario:#457CFD; --primario-suave:#1D2433; --primario-tinta:#DCE5FF;
+  --exito:#32B36E; --aviso:#F4A437; --aviso-suave:rgba(244,164,55,.13); --aviso-tinta:#F8D49A; --peligro:#F14D4C;
+  --burbuja-cliente:#1A1F29; --burbuja-bot:#1D2433; --burbuja-tu:#457CFD;
 }}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--fondo);color:var(--tinta)}
-body{font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{font:16px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid var(--yema);outline-offset:2px;border-radius:8px}
+button:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid var(--primario);outline-offset:2px;border-radius:8px}
 a{color:inherit}
 
 /* --- estructura --- */
-#vista{max-width:720px;margin:0 auto;padding:calc(var(--arriba) + 12px) 16px calc(var(--abajo) + 96px)}
-.titulo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 18px}
-.titulo h1{font-size:32px;line-height:1.1;letter-spacing:-.02em;margin:0;font-weight:750}
-.seccion{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:28px 0 10px}
+#vista{max-width:760px;margin:0 auto;padding:calc(var(--arriba) + 10px) 16px calc(var(--abajo) + 96px)}
+.marca{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0 14px;margin:0 -16px 0;padding-left:16px;padding-right:16px;border-bottom:1px solid var(--linea)}
+.marca .logo{display:flex;align-items:center;gap:10px;min-width:0}
+.marca img{width:32px;height:32px;border-radius:22%;flex:none}
+.marca b{display:block;font-size:15px;font-weight:600;line-height:1.15;letter-spacing:-.01em}
+.marca small{display:block;font-size:12px;color:var(--suave);line-height:1.2}
+.titulo{margin:26px 0 18px}
+.titulo h1{font-size:30px;line-height:1.1;letter-spacing:-.025em;margin:0;font-weight:700}
+.titulo p{margin:8px 0 0;color:var(--suave);font-size:16px;max-width:52ch}
+.seccion{font-size:17px;font-weight:600;letter-spacing:-.01em;margin:28px 0 10px}
 .suave{color:var(--suave)}
-.pequeno{font-size:14px}
+.pequeno{font-size:13px}
 
 /* conexión */
-.estado-wa{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;padding:6px 10px;border-radius:99px;background:var(--tarjeta);box-shadow:var(--sombra)}
-.punto{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
-.ok{color:var(--hoja)} .alerta{color:var(--rojo)} .espera{color:var(--ambar)}
+.estado-wa{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:5px 10px;border-radius:99px;background:var(--tarjeta);border:1px solid var(--linea);text-decoration:none;white-space:nowrap}
+.punto{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.ok{color:var(--exito)} .alerta{color:var(--peligro)} .espera{color:var(--aviso)}
 
-/* banda "te toca a ti" — el elemento protagonista */
-.te-toca{background:var(--yema);color:#1B1A14;border-radius:22px;padding:18px 18px 8px;margin-bottom:8px}
-.te-toca h2{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
-.te-toca p{margin:0 0 10px;font-size:15px;opacity:.8}
-.te-toca .fila{border-top:1px solid rgba(27,26,20,.14)}
-.te-toca .fila .prev{color:rgba(27,26,20,.72)}
-.tranquilo{border-radius:22px;padding:18px;background:var(--tarjeta);box-shadow:var(--sombra)}
-.tranquilo h2{margin:0 0 4px;font-size:20px}
+/* "te toca a ti" — lo que pide atención */
+.te-toca{background:var(--aviso-suave);border:1px solid color-mix(in srgb,var(--aviso) 35%,transparent);border-radius:var(--radio);padding:16px 16px 6px;margin-bottom:12px}
+.te-toca h2{margin:0 0 2px;font-size:17px;font-weight:600;color:var(--aviso-tinta)}
+.te-toca p{margin:0 0 8px;font-size:13px;color:var(--aviso-tinta);opacity:.85}
+.te-toca .fila{border-top:1px solid color-mix(in srgb,var(--aviso) 25%,transparent);padding-left:0;padding-right:0}
+.tranquilo{border-radius:var(--radio);padding:16px;background:var(--tarjeta);border:1px solid var(--linea);margin-bottom:12px}
+.tranquilo h2{margin:0 0 2px;font-size:17px;font-weight:600}
 
-/* números de la semana */
-.numeros{display:flex;gap:0;margin:20px 0 4px;background:var(--tarjeta);border-radius:18px;box-shadow:var(--sombra)}
-.numeros div{flex:1;padding:14px 12px;text-align:center}
-.numeros div+div{border-left:1px solid var(--linea)}
-.numeros b{display:block;font-size:26px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.numeros span{display:block;font-size:13px;line-height:1.25;color:var(--suave)}
+/* tarjetas de métricas (como el Centro de mando) */
+.metricas{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 4px}
+.metrica{background:var(--tarjeta);border:1px solid var(--linea);border-radius:var(--radio);padding:16px}
+.metrica span{display:block;font-size:13px;color:var(--suave)}
+.metrica b{display:block;font:600 28px/1.15 var(--mono);letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+.metrica small{display:block;font-size:13px;color:var(--suave);margin-top:4px;line-height:1.3}
 
 /* listas */
-.lista{background:var(--tarjeta);border-radius:18px;box-shadow:var(--sombra);overflow:hidden}
+.lista{background:var(--tarjeta);border:1px solid var(--linea);border-radius:var(--radio);overflow:hidden}
 .fila{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left;text-decoration:none;color:inherit}
 .lista .fila+.fila{border-top:1px solid var(--linea)}
-.avatar{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:18px;background:var(--verde);color:var(--yema)}
-.te-toca .avatar{background:#1B1A14}
+.avatar{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:600;font-size:15px;background:var(--primario-suave);color:var(--primario)}
+.te-toca .avatar{background:var(--tarjeta);color:var(--aviso-tinta)}
 .cuerpo{flex:1;min-width:0}
 .linea1{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.nombre{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hora{font-size:13px;color:var(--suave);flex:none}
-.te-toca .hora{color:rgba(27,26,20,.6)}
-.prev{font-size:15px;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center}
-.zona-tag{flex:none;font-size:12px;font-weight:600;line-height:1;padding:4px 8px;border-radius:99px;background:var(--yema-suave);color:var(--tinta);margin-left:6px;white-space:nowrap}
+.nombre{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hora{font-size:12px;color:var(--suave);flex:none;font-family:var(--mono)}
+.prev{font-size:14px;color:var(--suave);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center}
+.te-toca .prev{color:var(--aviso-tinta);opacity:.85}
+.zona-tag{flex:none;font-size:11px;font-weight:500;line-height:1;padding:4px 8px;border-radius:99px;background:var(--primario-suave);color:var(--primario);margin-left:6px;white-space:nowrap}
 .filtros.zonas{margin-top:-6px}
-.vacio{padding:22px 18px;color:var(--suave);text-align:center}
+.vacio{padding:22px 18px;color:var(--suave);text-align:center;font-size:14px}
 
 /* filtros */
 .filtros{display:flex;gap:8px;overflow-x:auto;margin:0 -16px 14px;padding:0 16px;scrollbar-width:none}
 .filtros::-webkit-scrollbar{display:none}
-.chip{flex:none;padding:8px 14px;border-radius:99px;background:var(--tarjeta);font-size:15px;font-weight:600;box-shadow:var(--sombra);color:var(--suave)}
-.chip[aria-pressed="true"]{background:var(--verde);color:#fff}
-@media (prefers-color-scheme:dark){.chip[aria-pressed="true"]{background:var(--yema);color:#1B1A14}}
-.chip .n{opacity:.7;margin-left:4px}
+.chip{flex:none;padding:7px 13px;border-radius:99px;background:var(--tarjeta);border:1px solid var(--linea);font-size:14px;font-weight:500;color:var(--suave)}
+.chip[aria-pressed="true"]{background:var(--primario);border-color:var(--primario);color:#fff}
+.chip .n{opacity:.75;margin-left:5px;font-family:var(--mono);font-size:12px}
 
 /* citas */
 .cita{display:flex;gap:14px;padding:14px}
 .lista .cita+.cita{border-top:1px solid var(--linea)}
-.cita .dia{width:54px;flex:none;text-align:center;border-radius:12px;background:var(--fondo);padding:6px 0}
-.cita .dia small{display:block;font-size:12px;color:var(--suave);text-transform:capitalize}
-.cita .dia b{display:block;font-size:22px;line-height:1.1}
+.cita .dia{width:52px;flex:none;text-align:center;border-radius:var(--radio-sm);background:var(--muted);padding:6px 0;align-self:flex-start}
+.cita .dia small{display:block;font-size:11px;color:var(--suave);text-transform:capitalize}
+.cita .dia b{display:block;font:600 20px/1.15 var(--mono)}
 .cita .acciones{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.boton{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:12px;font-weight:600;font-size:15px;background:var(--fondo);text-decoration:none}
-.boton.principal{background:var(--verde);color:#fff}
-@media (prefers-color-scheme:dark){.boton.principal{background:var(--yema);color:#1B1A14}}
-.boton.peligro{color:var(--rojo)}
+.boton{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:var(--radio-sm);font-weight:500;font-size:14px;background:var(--tarjeta);border:1px solid var(--linea);text-decoration:none;white-space:nowrap}
+.boton.principal{background:var(--primario);border-color:var(--primario);color:#fff}
+.boton.peligro{color:var(--peligro)}
 
 /* ajustes */
 .ajuste{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px}
 .lista .ajuste+.ajuste{border-top:1px solid var(--linea)}
-.interruptor{width:52px;height:32px;border-radius:99px;background:var(--linea);position:relative;flex:none;transition:background .2s}
-.interruptor::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
-.interruptor[aria-checked="true"]{background:var(--hoja)}
-.interruptor[aria-checked="true"]::after{transform:translateX(20px)}
-.codigo{font:700 34px/1.1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-align:center;padding:14px 0;color:var(--verde)}
-@media (prefers-color-scheme:dark){.codigo{color:var(--yema)}}
-.pasos{margin:0;padding:0 16px 14px 36px;color:var(--suave);font-size:15px}
+.interruptor{width:46px;height:28px;border-radius:99px;background:var(--linea);position:relative;flex:none;transition:background .2s}
+.interruptor::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.interruptor[aria-checked="true"]{background:var(--primario)}
+.interruptor[aria-checked="true"]::after{transform:translateX(18px)}
+.codigo{font:600 32px/1.1 var(--mono);letter-spacing:.08em;text-align:center;padding:14px 0;color:var(--primario)}
+.pasos{margin:0;padding:0 16px 14px 36px;color:var(--suave);font-size:14px}
 .pasos li{margin:4px 0}
 
 /* barra de pestañas */
-.pestanas{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;background:color-mix(in srgb,var(--tarjeta) 88%,transparent);backdrop-filter:saturate(1.6) blur(18px);-webkit-backdrop-filter:saturate(1.6) blur(18px);border-top:1px solid var(--linea);padding-bottom:var(--abajo)}
-.pestanas a{flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;font-size:11px;font-weight:600;color:var(--suave);text-decoration:none;position:relative}
-.pestanas a[aria-current="page"]{color:var(--verde)}
-@media (prefers-color-scheme:dark){.pestanas a[aria-current="page"]{color:var(--yema)}}
-.pestanas svg{width:26px;height:26px}
-.insignia{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--rojo);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.pestanas{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;background:color-mix(in srgb,var(--tarjeta) 92%,transparent);backdrop-filter:saturate(1.6) blur(18px);-webkit-backdrop-filter:saturate(1.6) blur(18px);border-top:1px solid var(--linea);padding-bottom:var(--abajo)}
+.pestanas a{flex:1;max-width:180px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 6px;font-size:11px;font-weight:500;color:var(--suave);text-decoration:none;position:relative}
+.pestanas a[aria-current="page"]{color:var(--primario)}
+.pestanas svg{width:24px;height:24px}
+.insignia{position:absolute;top:3px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--primario);color:#fff;font:600 11px/18px var(--mono);text-align:center}
 
 /* chat */
-.chat-cabeza{position:sticky;top:0;z-index:4;margin:calc(-1 * (var(--arriba) + 12px)) -16px 8px;padding:calc(var(--arriba) + 8px) 8px 10px;background:color-mix(in srgb,var(--fondo) 90%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--linea)}
+.chat-cabeza{position:sticky;top:0;z-index:4;margin:calc(-1 * (var(--arriba) + 10px)) -16px 8px;padding:calc(var(--arriba) + 8px) 8px 10px;background:color-mix(in srgb,var(--fondo) 92%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--linea)}
 .chat-top{display:flex;align-items:center;gap:8px}
 .chat-cabeza .aviso-estado{margin:8px 8px 0}
-.atras{display:flex;align-items:center;gap:2px;font-weight:600;color:var(--verde);padding:8px;text-decoration:none}
-@media (prefers-color-scheme:dark){.atras{color:var(--yema)}}
+.atras{display:flex;align-items:center;gap:2px;font-weight:500;color:var(--primario);padding:8px;text-decoration:none}
 .chat-top .cuerpo{text-align:center}
-.chat-top .nombre{font-size:17px}
-.mas{padding:8px 10px;font-size:22px;line-height:1;color:var(--suave)}
-.aviso-estado{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0;padding:10px 12px 10px 14px;border-radius:14px;background:var(--tarjeta);box-shadow:var(--sombra);font-size:15px}
-.aviso-estado.humano{background:var(--yema);color:#1B1A14}
-.aviso-estado.humano .boton{background:rgba(27,26,20,.12)}
+.chat-top .nombre{font-size:16px}
+.mas{padding:8px 10px;font-size:20px;line-height:1;color:var(--suave)}
+.aviso-estado{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0;padding:10px 12px 10px 14px;border-radius:var(--radio);background:var(--tarjeta);border:1px solid var(--linea);font-size:14px}
+.aviso-estado.humano{background:var(--aviso-suave);border-color:color-mix(in srgb,var(--aviso) 35%,transparent);color:var(--aviso-tinta)}
 .mensajes{display:flex;flex-direction:column;gap:6px;padding-bottom:8px}
-.dia-sep{align-self:center;font-size:13px;color:var(--suave);background:var(--tarjeta);padding:3px 10px;border-radius:99px;margin:10px 0 4px}
-.msg{max-width:82%;padding:8px 12px 6px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word;font-size:16px;line-height:1.35;box-shadow:var(--sombra)}
-.msg.cliente{align-self:flex-start;background:var(--burbuja-cliente);border-bottom-left-radius:6px}
-.msg.bot{align-self:flex-end;background:var(--burbuja-bot);border-bottom-right-radius:6px}
-.msg.tomas{align-self:flex-end;background:var(--burbuja-tu);border-bottom-right-radius:6px}
-.msg .meta{display:block;text-align:right;font-size:11px;color:var(--suave);margin-top:2px}
-.msg .quien{font-size:12px;font-weight:700;margin-bottom:1px;display:block}
-.msg.bot .quien{color:var(--hoja)} .msg.tomas .quien{color:var(--ambar)}
-.redactar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:color-mix(in srgb,var(--tarjeta) 92%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--linea);padding:8px 12px calc(var(--abajo) + 8px)}
-.redactar form{max-width:720px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
+.dia-sep{align-self:center;font-size:12px;color:var(--suave);background:var(--tarjeta);border:1px solid var(--linea);padding:3px 10px;border-radius:99px;margin:10px 0 4px}
+.msg{max-width:82%;padding:8px 12px 6px;border-radius:16px;white-space:pre-wrap;word-wrap:break-word;font-size:15px;line-height:1.4}
+.msg.cliente{align-self:flex-start;background:var(--burbuja-cliente);border:1px solid var(--linea);border-bottom-left-radius:5px}
+.msg.bot{align-self:flex-end;background:var(--burbuja-bot);border-bottom-right-radius:5px}
+.msg.tomas{align-self:flex-end;background:var(--burbuja-tu);color:var(--tinta-tu);border-bottom-right-radius:5px}
+.msg .meta{display:block;text-align:right;font:11px var(--mono);color:var(--suave);margin-top:3px}
+.msg.tomas .meta{color:rgba(255,255,255,.75)}
+.msg .quien{font-size:11px;font-weight:600;margin-bottom:1px;display:block}
+.msg.bot .quien{color:var(--primario)} .msg.tomas .quien{color:rgba(255,255,255,.85)}
+.redactar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:color-mix(in srgb,var(--tarjeta) 94%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--linea);padding:8px 12px calc(var(--abajo) + 8px)}
+.redactar form{max-width:760px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
 .redactar textarea{flex:1;resize:none;font:inherit;font-size:16px;line-height:1.35;max-height:140px;padding:9px 14px;border-radius:20px;border:1px solid var(--linea);background:var(--fondo);color:var(--tinta)}
-.enviar{width:40px;height:40px;border-radius:50%;background:var(--verde);color:#fff;display:grid;place-items:center;flex:none}
-.enviar:disabled{opacity:.4}
-@media (prefers-color-scheme:dark){.enviar{background:var(--yema);color:#1B1A14}}
-.redactar .nota{max-width:720px;margin:0 auto 6px;font-size:12px;color:var(--suave);text-align:center}
+.enviar{width:40px;height:40px;border-radius:50%;background:var(--primario);color:#fff;display:grid;place-items:center;flex:none}
+.enviar:disabled{opacity:.35}
+.redactar .nota{max-width:760px;margin:0 auto 6px;font-size:12px;color:var(--suave);text-align:center}
 
 /* hoja de acciones */
-.hoja-fondo{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center}
+.hoja-fondo{position:fixed;inset:0;z-index:10;background:rgba(6,10,19,.45);display:flex;align-items:flex-end;justify-content:center}
 .hoja{width:100%;max-width:520px;margin:0 8px calc(var(--abajo) + 8px);display:flex;flex-direction:column;gap:8px}
-.hoja .grupo{background:var(--tarjeta);border-radius:16px;overflow:hidden}
-.hoja button,.hoja a{display:block;width:100%;padding:16px;text-align:center;font-size:18px;color:var(--verde);text-decoration:none}
-@media (prefers-color-scheme:dark){.hoja button,.hoja a{color:var(--yema)}}
+.hoja .grupo{background:var(--tarjeta);border-radius:var(--radio);overflow:hidden}
+.hoja button,.hoja a{display:block;width:100%;padding:15px;text-align:center;font-size:17px;color:var(--primario);text-decoration:none}
 .hoja .grupo>*+*{border-top:1px solid var(--linea)}
-.hoja .rojo{color:var(--rojo)!important}
-.hoja .cancelar{font-weight:700}
+.hoja .rojo{color:var(--peligro)!important}
+.hoja .cancelar{font-weight:600}
 
-.toast{position:fixed;left:50%;bottom:calc(var(--abajo) + 90px);transform:translateX(-50%);background:var(--verde);color:#fff;padding:10px 16px;border-radius:12px;font-size:15px;z-index:20;max-width:90vw}
-@media (prefers-reduced-motion:no-preference){.hoja{animation:sube .22s ease-out}@keyframes sube{from{transform:translateY(30px);opacity:0}}}
+.toast{position:fixed;left:50%;bottom:calc(var(--abajo) + 90px);transform:translateX(-50%);background:var(--menu);color:#fff;padding:10px 16px;border-radius:var(--radio-sm);font-size:14px;z-index:20;max-width:90vw}
+@media (prefers-color-scheme:dark){.toast{background:var(--primario)}}
+@media (min-width:700px){.metricas{grid-template-columns:repeat(4,1fr)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
@@ -280,13 +287,19 @@ a{color:inherit}
     return '<span class="estado-wa espera"><span class="punto"></span>Conectando…</span>'
   }
 
+  /** Barra con el logo (como Royal Sales IA) + título y subtítulo de la pantalla */
+  function cabecera (titulo, subtitulo) {
+    return `<div class="marca"><div class="logo"><img src="/apple-touch-icon.png" alt=""><div><b>Royal Sales IA</b><small>Agente de citas</small></div></div>${pastillaWA()}</div>
+      <header class="titulo"><h1>${esc(titulo)}</h1>${subtitulo ? `<p>${esc(subtitulo)}</p>` : ''}</header>`
+  }
+
   // ---------- vistas ----------
   async function verInicio () {
     estado = await api('/api/estado'); zona = estado.zona || zona
     const r = estado.resumen
     const pend = estado.pendientes
     vista.innerHTML = `
-      <header class="titulo"><h1>Hoy</h1>${pastillaWA()}</header>
+      ${cabecera('Hoy', 'Lo que está pasando con tus prospectos de WhatsApp.')}
       ${!estado.botActivo ? '<div class="aviso-estado"><span>El bot está apagado y no contesta a nadie.</span><button class="boton principal" data-bot="on">Encender</button></div>' : ''}
       ${pend.length
         ? `<section class="te-toca"><h2>${pend.length === 1 ? '1 persona te espera' : pend.length + ' personas te esperan'}</h2>
@@ -294,10 +307,11 @@ a{color:inherit}
             ${pend.map(filaChat).join('')}</section>`
         : `<section class="tranquilo"><h2>Nadie te está esperando</h2>
             <div class="suave">${estado.botActivo ? 'El bot está atendiendo a los prospectos.' : 'Enciende el bot para que atienda a los prospectos.'}</div></section>`}
-      <div class="numeros">
-        <div><b>${r.prospectosHoy}</b><span>prospectos hoy</span></div>
-        <div><b>${r.prospectosSemana}</b><span>esta semana</span></div>
-        <div><b>${r.citasSemana}</b><span>citas esta semana</span></div>
+      <div class="metricas">
+        <div class="metrica"><span>Prospectos hoy</span><b>${r.prospectosHoy}</b><small>Escribieron por campañas</small></div>
+        <div class="metrica"><span>Esta semana</span><b>${r.prospectosSemana}</b><small>Prospectos nuevos</small></div>
+        <div class="metrica"><span>Citas agendadas</span><b>${r.citasSemana}</b><small>Por el bot esta semana</small></div>
+        <div class="metrica"><span>Próximas citas</span><b>${r.citasProximas}</b><small>Demostraciones por venir</small></div>
       </div>
       <h2 class="seccion">Próximas citas</h2>
       <div class="lista">${estado.proximas.length ? estado.proximas.map(filaCita).join('') : '<div class="vacio">Cuando el bot agende una demostración, aparecerá aquí.</div>'}</div>`
@@ -326,7 +340,7 @@ a{color:inherit}
         </div>`
       : ''
     vista.innerHTML = `
-      <header class="titulo"><h1>Chats</h1>${pastillaWA()}</header>
+      ${cabecera('Chats', 'Conversaciones que atiende el bot.')}
       <div class="filtros" role="group" aria-label="Filtrar chats">
         ${filtros.map(([k, t, f]) => `<button class="chip" data-filtro="${k}" aria-pressed="${k === filtro}">${t}<span class="n">${cuenta(f)}</span></button>`).join('')}
       </div>
@@ -412,7 +426,7 @@ a{color:inherit}
     const proximas = vigentes.filter(c => c.fin > ahora)
     const pasadas = vigentes.filter(c => c.fin <= ahora).reverse()
     vista.innerHTML = `
-      <header class="titulo"><h1>Citas</h1></header>
+      ${cabecera('Citas', 'Demostraciones agendadas por el bot.')}
       <div class="lista">${proximas.length ? proximas.map(filaCita).join('') : '<div class="vacio">No hay demostraciones próximas.</div>'}</div>
       ${pasadas.length ? `<h2 class="seccion">Anteriores</h2><div class="lista">${pasadas.slice(0, 30).map(filaCita).join('')}</div>` : ''}`
   }
@@ -434,7 +448,7 @@ a{color:inherit}
       bloqueWA = `<div class="ajuste"><div><div class="nombre espera">Conectando con WhatsApp…</div><div class="suave pequeno">${esc(w.error)}</div></div></div>`
     }
     vista.innerHTML = `
-      <header class="titulo"><h1>Ajustes</h1></header>
+      ${cabecera('Ajustes', 'El bot, la conexión con WhatsApp y la app.')}
       <div class="lista">
         <div class="ajuste"><div><div class="nombre">Bot encendido</div><div class="suave pequeno">${estado.botActivo ? 'Contesta a los prospectos nuevos' : 'No contesta a nadie'}</div></div>
           <button class="interruptor" role="switch" aria-checked="${estado.botActivo}" aria-label="Bot encendido" id="interruptor"></button></div>
