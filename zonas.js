@@ -73,6 +73,23 @@ export function zonaDesdeUbicacion (ciudad, estado) {
   return null
 }
 
+const ESTE = ['CT','DE','DC','FL','GA','IN','KY','ME','MD','MA','MI','NH','NJ','NY','NC','OH','PA','PR','RI','SC','VT','VA','WV']
+const CENTRO = ['AL','AR','IL','IA','KS','LA','MN','MS','MO','NE','ND','OK','SD','TN','TX','WI']
+const MONTANA = ['CO','ID','MT','NM','UT','WY']
+const PACIFICO = ['CA','NV','OR','WA']
+/** Zona horaria principal de un estado (aproximada: algunos estados tienen dos) */
+export function zonaHorariaEstado (cod) {
+  const c = codigoEstado(cod)
+  if (ESTE.includes(c)) return c === 'PR' ? 'America/Puerto_Rico' : 'America/New_York'
+  if (CENTRO.includes(c)) return 'America/Chicago'
+  if (MONTANA.includes(c)) return 'America/Denver'
+  if (PACIFICO.includes(c)) return 'America/Los_Angeles'
+  if (c === 'AZ') return 'America/Phoenix'
+  if (c === 'AK') return 'America/Anchorage'
+  if (c === 'HI') return 'Pacific/Honolulu'
+  return ''
+}
+
 export const zonaHorariaDe = (zona) => zona?.zonaHoraria || ajustes.zonaHoraria || 'America/Chicago'
 export const horariosDe = (zona) => zona?.horarios || ajustes.horarios || {}
 export const quienAtiende = (zona) => zona?.atiende || 'Tomás'

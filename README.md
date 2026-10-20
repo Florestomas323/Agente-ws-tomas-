@@ -1,4 +1,6 @@
-# Agente de citas por WhatsApp — Impact Enterprises
+# Royal Cita IA — agente de citas por WhatsApp (Impact Enterprises)
+
+El bot se presenta como **Sofía**, la asistente virtual de Tomás. Su único objetivo es **agendar citas de 30 a 40 minutos**: primero presencial y, si no se puede, por Zoom. Nunca da precios.
 
 Contesta solo a las personas que te escriben desde tus campañas de Facebook/Instagram, las califica, les ofrece horarios libres de tu Google Calendar y agenda la demostración. Cuando agenda o cuando necesita que tú intervengas, te avisa por WhatsApp.
 
@@ -47,6 +49,7 @@ En console.anthropic.com → **API Keys** → **Create Key**. Cópiala; la usar�
 | `CALENDARIO_URL` | *(paso 5)* URL del Apps Script |
 | `CALENDARIO_CLAVE` | *(paso 5)* la clave que pongas en el Apps Script |
 | `MODELO_IA` | *(opcional)* por defecto `claude-sonnet-5-5` |
+| `ZOOM_LINK` | *(opcional)* tu sala personal de Zoom. Si la pones, Sofía la comparte al agendar por Zoom; si no, le dice al cliente que le enviarán el enlace |
 
 5. **Settings → Networking → Generate Domain**. Esa dirección es tu **panel**. Guárdala en tu pantalla de inicio.
 

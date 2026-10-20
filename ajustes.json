@@ -22,12 +22,12 @@
   "_frasesClave": "Si el primer mensaje de alguien contiene una de estas frases, el bot lo trata como prospecto de campaña. Pon aquí el mensaje que trae prellenado tu anuncio.",
 
   "horarios": {
-    "lunes":     ["10:00", "13:00", "16:00", "18:30"],
-    "martes":    ["10:00", "13:00", "16:00", "18:30"],
-    "miercoles": ["10:00", "13:00", "16:00", "18:30"],
-    "jueves":    ["10:00", "13:00", "16:00", "18:30"],
-    "viernes":   ["10:00", "13:00", "16:00", "18:30"],
-    "sabado":    ["10:00", "13:00", "16:00"],
+    "lunes":     ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
+    "martes":    ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
+    "miercoles": ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
+    "jueves":    ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
+    "viernes":   ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"],
+    "sabado":    ["10:00", "11:30", "13:00", "14:30"],
     "domingo":   []
   },
   "_horarios": "Horas de inicio que el bot puede ofrecer cada día. Deja [] para no agendar ese día.",
@@ -61,14 +61,16 @@
   "avisarNuevoProspecto": true,
   "_avisarNuevoProspecto": "Te manda un WhatsApp apenas alguien escribe desde una campaña, con el anuncio y la zona.",
 
-  "duracionCitaMinutos": 120,
+  "duracionCitaMinutos": 40,
   "margenTrasladoMinutos": 30,
-  "_margenTrasladoMinutos": "Tiempo libre que se respeta antes y después de cualquier evento de tu calendario (para manejar).",
+  "_margenTrasladoMinutos": "Citas presenciales: tiempo libre que se respeta antes y después de cualquier evento de tu calendario (para manejar).",
+  "margenZoomMinutos": 10,
+  "_margenZoomMinutos": "Citas por Zoom: tiempo libre entre citas (no hay que manejar).",
   "anticipacionMinimaHoras": 3,
   "diasAMostrar": 7,
 
   "calendario": {
-    "tituloCita": "Demostración Royal Prestige — {nombre}",
+    "tituloCita": "Cita Royal Prestige — {nombre}",
     "colorId": "7",
     "invitados": []
   },

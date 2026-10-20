@@ -33,7 +33,7 @@ export async function enviarAlCrm (chat, zona, extra = {}) {
     ...(chat.ciudad ? { ciudad: chat.ciudad } : {}),
     ...(chat.estadoUS ? { estado: nombreEstado(chat.estadoUS) } : {}),
     ...(chat.origen ? { origen: chat.origen } : {}),
-    ...(c ? { cita: extra.citaTexto || c.inicio, direccion_cita: c.direccion, notas_cita: c.notas || '' } : {})
+    ...(c ? { cita: extra.citaTexto || c.inicio, modalidad: c.modalidad === 'zoom' ? 'Zoom' : 'Presencial', direccion_cita: c.direccion || '', notas_cita: c.notas || '' } : {})
   }
   const cuerpo = {
     name: (c?.nombre || chat.nombreReal || chat.nombre || 'Prospecto WhatsApp').slice(0, 120),
@@ -48,7 +48,7 @@ export async function enviarAlCrm (chat, zona, extra = {}) {
     ...(chat.anuncioUrl && /^https?:\/\//.test(chat.anuncioUrl) ? { adUrl: chat.anuncioUrl.slice(0, 2000) } : {}),
     ...(chat.ciudad ? { city: chat.ciudad.slice(0, 80) } : {}),
     ...(chat.estadoUS ? { state: chat.estadoUS } : {}),
-    ...(c ? { schedulePreference: `Cita agendada: ${extra.citaTexto || c.inicio} — ${c.direccion}`.slice(0, 240) } : {}),
+    ...(c ? { schedulePreference: `Cita agendada (${c.modalidad === 'zoom' ? 'Zoom' : 'presencial'}): ${extra.citaTexto || c.inicio}${c.direccion ? ' — ' + c.direccion : ''}`.slice(0, 240) } : {}),
     answers: Object.fromEntries(Object.entries(respuestas).map(([k, v]) => [k, String(v).slice(0, 500)]))
   }
 

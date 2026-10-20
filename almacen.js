@@ -83,7 +83,7 @@ export function agregarCita (cita) {
 }
 
 export function listarCitas () {
-  return [...datos.citas].sort((a, b) => a.inicio.localeCompare(b.inicio))
+  return [...datos.citas].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))
 }
 
 export function botActivo () { return datos.botActivo }

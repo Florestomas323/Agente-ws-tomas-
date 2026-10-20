@@ -47,8 +47,9 @@ async function ocupados (desde, hasta, zona) {
   return lista
 }
 
-function chocan (inicio, fin, ocupadosLista) {
-  const margen = { minutes: ajustes.margenTrasladoMinutos || 0 }
+function chocan (inicio, fin, ocupadosLista, modalidad) {
+  // presencial: tiempo para manejar; Zoom: solo un respiro entre citas
+  const margen = { minutes: modalidad === 'zoom' ? (ajustes.margenZoomMinutos ?? 10) : (ajustes.margenTrasladoMinutos || 0) }
   const a = inicio.minus(margen)
   const b = fin.plus(margen)
   return ocupadosLista.some(o => o.inicio < b && o.fin > a)
@@ -74,7 +75,7 @@ function candidatos (desde, hasta, zona) {
  * @param {string} [fecha] YYYY-MM-DD para un día concreto; si no, los próximos días.
  * @param {object} [zona]
  */
-export async function horariosDisponibles (fecha, zona) {
+export async function horariosDisponibles (fecha, zona, modalidad = 'presencial') {
   const tz = zona ? zonaHorariaDe(zona) : zonaBase()
   const minimo = ahora(zona).plus({ hours: ajustes.anticipacionMinimaHoras ?? 3 })
   let desde, hasta
@@ -90,7 +91,7 @@ export async function horariosDisponibles (fecha, zona) {
   const ocup = await ocupados(desde.minus({ hours: 4 }), hasta.plus({ hours: 4 }), zona)
   return candidatos(desde, hasta, zona)
     .filter(i => i >= minimo)
-    .filter(i => !chocan(i, i.plus(duracion), ocup))
+    .filter(i => !chocan(i, i.plus(duracion), ocup, modalidad))
 }
 
 export function formatoHumano (dt) {
@@ -99,28 +100,30 @@ export function formatoHumano (dt) {
 
 /** Fecha de una cita en la hora local de su zona, con aviso si no es hora de Texas */
 export function formatoCita (cita) {
-  const tz = cita.zonaHoraria || zonaBase()
+  const tz = cita.tzCliente || cita.zonaHoraria || zonaBase()
   const dt = DateTime.fromISO(cita.inicio).setZone(tz)
   const otra = tz !== zonaBase()
   return formatoHumano(dt) + (otra ? ` (hora local; ${formatoHumano(dt.setZone(zonaBase())).split(', ')[1]} en Texas)` : '')
 }
 
 /** Crea la cita (revalida que el horario siga libre) */
-export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccion, ciudad, notas, zona }) {
+export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccion, ciudad, notas, zona, modalidad = 'presencial', tzCliente = '' }) {
+  const esZoom = modalidad === 'zoom'
   const tz = zona ? zonaHorariaDe(zona) : zonaBase()
   const inicio = DateTime.fromISO(inicioISO, { setZone: true }).setZone(tz)
   if (!inicio.isValid) throw new Error('Fecha y hora inválidas')
-  const libres = await horariosDisponibles(inicio.toISODate(), zona)
+  const libres = await horariosDisponibles(inicio.toISODate(), zona, modalidad)
   if (!libres.some(l => +l === +inicio)) {
     return { ok: false, motivo: 'Ese horario ya no está disponible. Consulta de nuevo los horarios.' }
   }
   const fin = inicio.plus({ minutes: ajustes.duracionCitaMinutos || 120 })
-  const titulo = (ajustes.calendario?.tituloCita || 'Cita — {nombre}').replace('{nombre}', nombre) +
+  const titulo = (esZoom ? '🎥 Zoom · ' : '') + (ajustes.calendario?.tituloCita || 'Cita — {nombre}').replace('{nombre}', nombre) +
     (zona && zona.nombre ? ` (${zona.nombre})` : '')
   const descripcion = [
     `Cliente: ${nombre}`,
     telefono ? `WhatsApp: +${telefono}  (https://wa.me/${telefono})` : '',
-    `Dirección: ${direccion}`,
+    esZoom ? `Modalidad: Zoom${config.zoomEnlace ? ' — ' + config.zoomEnlace : ' (enviar el enlace al cliente)'}` : 'Modalidad: presencial',
+    !esZoom ? `Dirección: ${direccion}` : '',
     ciudad ? `Ciudad: ${ciudad}` : '',
     zona ? `Zona: ${zona.nombre || zona.id} — atiende ${quienAtiende(zona)}` : '',
     notas ? `Notas: ${notas}` : '',
@@ -137,7 +140,7 @@ export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccio
       inicio: inicio.toISO(),
       fin: fin.toISO(),
       descripcion,
-      ubicacion: direccion,
+      ubicacion: esZoom ? (config.zoomEnlace || 'Zoom') : direccion,
       colorId: ajustes.calendario?.colorId || '7',
       invitados: ajustes.calendario?.invitados || []
     })
@@ -146,7 +149,8 @@ export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccio
 
   const cita = {
     id: 'c' + Date.now(),
-    chatId, telefono, nombre, direccion, ciudad, notas,
+    chatId, telefono, nombre, direccion: esZoom ? '' : direccion, ciudad, notas, modalidad: esZoom ? 'zoom' : 'presencial',
+    tzCliente: tzCliente || '', zoomEnlace: esZoom ? config.zoomEnlace : '',
     inicio: inicio.toISO(), fin: fin.toISO(),
     zona: zona?.id || '', zonaNombre: zona?.nombre || '', zonaHoraria: tz, atiende: quienAtiende(zona),
     eventoId, estado: 'agendada', creada: Date.now()

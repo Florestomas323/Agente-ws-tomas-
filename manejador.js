@@ -203,7 +203,8 @@ export function crearManejador (io) {
         const c = r.cita
         const ch = obtenerChat(jid)
         await avisarZona(ch,
-          `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatoCita(c)}\n📍 ${c.direccion}` +
+          `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatoCita(c)}\n` +
+          (c.modalidad === 'zoom' ? `🎥 Por Zoom${c.zoomEnlace ? '' : ' — envíale el enlace antes de la cita'}` : `🏠 Presencial — 📍 ${c.direccion}`) +
           `\n📱 wa.me/${c.telefono || digitos(jid)}` + (c.notas ? `\n📝 ${c.notas}` : '') +
           `\n${etiquetaZona(ch)}` + (ch.anuncio ? `\n📢 ${ch.anuncio}` : '')
         )

@@ -10,10 +10,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Citas">
+<meta name="apple-mobile-web-app-title" content="Royal Cita">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>Agente de citas</title>
+<title>Royal Cita IA</title>
 <style>
 /* Mismos tokens que Royal Sales IA (app/globals.css), convertidos a hex */
 :root{
@@ -263,19 +263,22 @@ a{color:inherit}
   function filaCita (c) {
     const d = new Date(c.inicio)
     // la cita se muestra en la hora local de su zona (si es de otro estado, se aclara)
-    const f = (o) => new Intl.DateTimeFormat('es', { timeZone: c.zonaHoraria || zona, ...o }).format(d)
-    const otraHora = c.zonaHoraria && c.zonaHoraria !== zona
+    const tzCita = c.tzCliente || c.zonaHoraria || zona
+    const f = (o) => new Intl.DateTimeFormat('es', { timeZone: tzCita, ...o }).format(d)
+    const otraHora = tzCita !== zona
     return `<div class="cita">
       <div class="dia"><small>${esc(f({ weekday: 'short' }))}</small><b>${esc(f({ day: 'numeric' }))}</b><small>${esc(f({ month: 'short' }))}</small></div>
       <div class="cuerpo">
         <div class="linea1"><span style="display:flex;align-items:center;min-width:0"><span class="nombre">${esc(c.nombre)}</span>${c.zonaNombre ? `<span class="zona-tag">${esc(c.zonaNombre)}</span>` : ''}</span><span class="hora">${esc(f({ hour: 'numeric', minute: '2-digit' }))}${otraHora ? ' local' : ''}</span></div>
         ${c.atiende && c.atiende !== 'Tomás' ? `<div class="suave pequeno">Atiende ${esc(c.atiende)}</div>` : ''}
-        <div class="suave pequeno">${esc(c.direccion)}</div>
+        <div class="suave pequeno">${c.modalidad === 'zoom' ? '🎥 Por Zoom' : esc(c.direccion)}</div>
         ${c.notas ? `<div class="suave pequeno">${esc(c.notas)}</div>` : ''}
         <div class="acciones">
           ${c.chatId ? `<a class="boton" href="#/chat/${encodeURIComponent(c.chatId)}">Ver chat</a>` : ''}
           ${c.telefono ? `<a class="boton" href="https://wa.me/${esc(c.telefono)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-          <a class="boton" href="https://maps.apple.com/?q=${encodeURIComponent(c.direccion)}" target="_blank" rel="noopener">Cómo llegar</a>
+          ${c.modalidad === 'zoom'
+            ? (c.zoomEnlace ? `<a class="boton" href="${esc(c.zoomEnlace)}" target="_blank" rel="noopener">Abrir Zoom</a>` : '')
+            : `<a class="boton" href="https://maps.apple.com/?q=${encodeURIComponent(c.direccion)}" target="_blank" rel="noopener">Cómo llegar</a>`}
         </div>
       </div></div>`
   }
@@ -289,7 +292,7 @@ a{color:inherit}
 
   /** Barra con el logo (como Royal Sales IA) + título y subtítulo de la pantalla */
   function cabecera (titulo, subtitulo) {
-    return `<div class="marca"><div class="logo"><img src="/apple-touch-icon.png" alt=""><div><b>Royal Sales IA</b><small>Agente de citas</small></div></div>${pastillaWA()}</div>
+    return `<div class="marca"><div class="logo"><img src="/apple-touch-icon.png" alt=""><div><b>Royal Cita IA</b><small>Asistente: Sofía</small></div></div>${pastillaWA()}</div>
       <header class="titulo"><h1>${esc(titulo)}</h1>${subtitulo ? `<p>${esc(subtitulo)}</p>` : ''}</header>`
   }
 
@@ -340,7 +343,7 @@ a{color:inherit}
         </div>`
       : ''
     vista.innerHTML = `
-      ${cabecera('Chats', 'Conversaciones que atiende el bot.')}
+      ${cabecera('Chats', 'Conversaciones que atiende Sofía.')}
       <div class="filtros" role="group" aria-label="Filtrar chats">
         ${filtros.map(([k, t, f]) => `<button class="chip" data-filtro="${k}" aria-pressed="${k === filtro}">${t}<span class="n">${cuenta(f)}</span></button>`).join('')}
       </div>
@@ -421,12 +424,12 @@ a{color:inherit}
 
   async function verCitas () {
     const { citas } = await api('/api/citas')
-    const ahora = new Date().toISOString()
+    const ahora = Date.now()
     const vigentes = citas.filter(c => c.estado === 'agendada')
-    const proximas = vigentes.filter(c => c.fin > ahora)
-    const pasadas = vigentes.filter(c => c.fin <= ahora).reverse()
+    const proximas = vigentes.filter(c => Date.parse(c.fin) > ahora)
+    const pasadas = vigentes.filter(c => Date.parse(c.fin) <= ahora).reverse()
     vista.innerHTML = `
-      ${cabecera('Citas', 'Demostraciones agendadas por el bot.')}
+      ${cabecera('Citas', 'Citas agendadas por Sofía.')}
       <div class="lista">${proximas.length ? proximas.map(filaCita).join('') : '<div class="vacio">No hay demostraciones próximas.</div>'}</div>
       ${pasadas.length ? `<h2 class="seccion">Anteriores</h2><div class="lista">${pasadas.slice(0, 30).map(filaCita).join('')}</div>` : ''}`
   }
@@ -457,7 +460,7 @@ a{color:inherit}
       <div class="lista">${bloqueWA}</div>
       ${instalada ? '' : `<h2 class="seccion">Instalar en tu pantalla de inicio</h2>
       <div class="lista"><ol class="pasos" style="padding-top:14px"><li>Abre esta página en Safari.</li><li>Toca el botón Compartir.</li><li>Elige “Agregar a pantalla de inicio”.</li><li>Abre la app desde el ícono y entra con tu clave una vez.</li></ol></div>`}
-      <h2 class="seccion">Cambiar cómo habla el bot</h2>
+      <h2 class="seccion">Cambiar cómo habla Sofía</h2>
       <div class="lista"><div class="ajuste"><div class="suave pequeno">Los horarios, la oferta y el estilo se editan en GitHub: <b>negocio.md</b>, <b>estilo.md</b> y <b>ajustes.json</b>.</div></div></div>
       <div style="margin-top:28px;text-align:center"><a class="boton" href="/salir">Cerrar sesión</a></div>`
     $('#interruptor').addEventListener('click', async (e) => {

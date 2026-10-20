@@ -21,8 +21,8 @@ const ficha = () => crypto.createHash('sha256').update('panel:' + config.panelCl
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
 const MANIFIESTO = JSON.stringify({
-  name: 'Agente de citas',
-  short_name: 'Citas',
+  name: 'Royal Cita IA',
+  short_name: 'Royal Cita',
   start_url: '/',
   scope: '/',
   display: 'standalone',
@@ -82,7 +82,7 @@ function datosEstado () {
   const espera = (c) => c.estado === 'humano' || (c.estado === 'conocido' && c.pideInfo)
   const inicioHoy = DateTime.now().setZone(zona()).startOf('day').toMillis()
   const inicioSemana = DateTime.now().setZone(zona()).startOf('week').toMillis()
-  const ahoraISO = DateTime.now().toISO()
+  const ahoraMs = Date.now()
   const citas = listarCitas().filter(c => c.estado === 'agendada')
   return {
     wa: {
@@ -100,11 +100,11 @@ function datosEstado () {
       prospectosHoy: chats.filter(c => (c.creado || 0) >= inicioHoy).length,
       prospectosSemana: chats.filter(c => (c.creado || 0) >= inicioSemana).length,
       citasSemana: citas.filter(c => (c.creada || 0) >= inicioSemana).length,
-      citasProximas: citas.filter(c => c.fin > ahoraISO).length,
+      citasProximas: citas.filter(c => Date.parse(c.fin) > ahoraMs).length,
       teToca: chats.filter(espera).length
     },
     pendientes: chats.filter(espera).slice(0, 10).map(resumenChat),
-    proximas: citas.filter(c => c.fin > ahoraISO).slice(0, 3)
+    proximas: citas.filter(c => Date.parse(c.fin) > ahoraMs).slice(0, 3)
   }
 }
 
@@ -115,8 +115,8 @@ function paginaEntrar (error = '') {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#060A13"><meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Citas"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/manifest.webmanifest"><title>Agente de citas · Royal Sales IA</title>
+<meta name="apple-mobile-web-app-title" content="Royal Cita"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest"><title>Royal Cita IA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <style>
@@ -133,10 +133,10 @@ button{width:100%;margin-top:14px;font:inherit;font-weight:600;padding:12px;bord
 .error{color:#FF8A8A;margin-top:12px;font-size:14px}
 </style></head><body>
 <form method="post" action="/entrar">
-<div class="marca"><img src="/apple-touch-icon.png" alt=""><div><b>Royal Sales IA</b><small>Agente de citas</small></div></div>
+<div class="marca"><img src="/apple-touch-icon.png" alt=""><div><b>Royal Cita IA</b><small>Agente de citas de Royal Sales IA</small></div></div>
 ${sinClave
     ? '<h1>Falta configurar</h1><p>Agrega la variable PANEL_CLAVE en Railway para proteger la app.</p>'
-    : `<h1>Entrar</h1><p>Escribe la clave de tu agente de citas.</p>
+    : `<h1>Entrar</h1><p>Escribe la clave de Royal Cita IA.</p>
 <label for="clave">Clave</label><input id="clave" type="password" name="clave" autocomplete="current-password" autofocus>
 <button>Entrar</button>${error ? `<div class="error">${esc(error)}</div>` : ''}`}
 </form></body></html>`
