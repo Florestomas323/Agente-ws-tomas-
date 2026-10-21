@@ -7,12 +7,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DateTime } from 'luxon'
 import { config, ajustes } from './config.js'
-import { estadoWA, desvincular, enviarComoTomas, contestarAhora } from './whatsapp.js'
+import { estadoWA, desvincular, enviarComoTomas, contestarAhora, tomarChat } from './whatsapp.js'
 import {
   listarChats, listarCitas, obtenerChat, crearOActualizarChat, botActivo, cambiarBotActivo
 } from './almacen.js'
 import { ICONO_180, ICONO_192, ICONO_512 } from './icono.js'
-import { listaZonas, zonaPorId, nombreEstado } from './zonas.js'
+import { listaZonas, zonaPorId, nombreEstado, ofertaPorId } from './zonas.js'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
 const APP_HTML = fs.readFileSync(path.join(aqui, 'app.html'), 'utf8')
@@ -66,8 +66,14 @@ function resumenChat (c) {
     anuncio: c.anuncio || '',
     zona: c.zona || '',
     zonaNombre: zonaPorId(c.zona)?.nombre || '',
-    lugar: [c.ciudad, c.estadoUS ? nombreEstado(c.estadoUS) : ''].filter(Boolean).join(', '),
+    lugar: [c.ciudad, c.estadoUS ? nombreEstado(c.estadoUS) : '', c.codigoPostal].filter(Boolean).join(', '),
     crm: c.crm ? true : false,
+    avance: c.avance || '',
+    oferta: ofertaPorId(c.oferta)?.nombre || '',
+    regalo: c.regalo ? c.regalo.nombre + (c.regalo.codigo ? ' (' + c.regalo.codigo + ')' : '') + (c.regalo.duplicado ? ' ⚠️ código repetido' : '') : '',
+    noInteresado: Boolean(c.noInteresado),
+    seguimientos: c.seguimiento?.n || 0,
+    resumen: c.resumen?.texto || '',
     pausadoHasta: c.pausadoHasta || null,
     actualizado: c.actualizado || 0,
     ultimo: ult ? { rol: ult.rol, texto: ult.texto.slice(0, 160), t: ult.t } : null
@@ -197,7 +203,7 @@ export function iniciarPanel () {
         if (accion === 'bot_on') cambiarBotActivo(true)
         else if (accion === 'bot_off') cambiarBotActivo(false)
         else if (accion === 'activar' && existe) { crearOActualizarChat(id, { estado: 'prospecto', pausadoHasta: null, pideInfo: null }); contestarAhora(id) }
-        else if (accion === 'pausar' && existe) crearOActualizarChat(id, { estado: 'pausado', pausadoHasta: null })
+        else if (accion === 'pausar' && existe) tomarChat(id)
         else if (accion === 'ignorar' && existe) crearOActualizarChat(id, { estado: 'conocido', pideInfo: null })
         else if (accion === 'desvincular') await desvincular()
         else return json({ error: 'accion_invalida' }, 400)

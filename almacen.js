@@ -1,12 +1,13 @@
 // Guarda conversaciones, estado de cada chat y citas en un archivo JSON (en el volumen de Railway)
 import fs from 'node:fs'
+import crypto from 'node:crypto'
 import path from 'node:path'
 import { config } from './config.js'
 
 const archivo = path.join(config.carpetaDatos, 'estado.json')
 const MAX_HISTORIAL = 40
 
-let datos = { botActivo: true, chats: {}, citas: [] }
+let datos = { botActivo: true, chats: {}, citas: [], idsProcesados: [], crmCola: [], codigosRegalo: {} }
 try {
   if (fs.existsSync(archivo)) datos = { ...datos, ...JSON.parse(fs.readFileSync(archivo, 'utf8')) }
 } catch (e) {
@@ -43,10 +44,10 @@ export function crearOActualizarChat (id, cambios) {
   return datos.chats[id]
 }
 
-export function agregarAlHistorial (id, rol, texto) {
+export function agregarAlHistorial (id, rol, texto, t = Date.now()) {
   const chat = datos.chats[id]
   if (!chat) return
-  chat.historial.push({ rol, texto, t: Date.now() })
+  chat.historial.push({ rol, texto, t })
   if (chat.historial.length > MAX_HISTORIAL) chat.historial = chat.historial.slice(-MAX_HISTORIAL)
   chat.actualizado = Date.now()
   guardar()
@@ -96,3 +97,45 @@ export function listarCitas () {
 
 export function botActivo () { return datos.botActivo }
 export function cambiarBotActivo (v) { datos.botActivo = !!v; guardar() }
+
+/** Evita procesar dos veces el mismo mensaje (WhatsApp a veces lo reenvía al reconectar) */
+export function yaProcesado (idMensaje) {
+  if (!idMensaje) return false
+  if (datos.idsProcesados.includes(idMensaje)) return true
+  datos.idsProcesados.push(idMensaje)
+  if (datos.idsProcesados.length > 3000) datos.idsProcesados = datos.idsProcesados.slice(-3000)
+  guardar()
+  return false
+}
+
+// ---------- Cola del CRM (reintentos) ----------
+export function colaCrm () { return datos.crmCola }
+export function encolarCrm (item) {
+  datos.crmCola.push({ id: 'q' + crypto.randomUUID(), intentos: 0, proximo: 0, creado: Date.now(), ...item })
+  guardar()
+}
+/** Pone un envío al frente de la cola (p. ej. volver a mandar el prospecto antes que sus estados) */
+export function encolarCrmAlFrente (item) {
+  datos.crmCola.unshift({ id: 'q' + crypto.randomUUID(), intentos: 0, proximo: 0, creado: Date.now(), ...item })
+  guardar()
+}
+export function quitarDeColaCrm (id) {
+  datos.crmCola = datos.crmCola.filter(x => x.id !== id)
+  guardar()
+}
+export function actualizarEnColaCrm (id, cambios) {
+  const x = datos.crmCola.find(i => i.id === id)
+  if (x) { Object.assign(x, cambios); guardar() }
+}
+
+// ---------- Códigos de regalo (una participación por persona) ----------
+/** Registra el código; devuelve el chat que ya lo había usado (si es otro) */
+export function registrarCodigoRegalo (codigo, chatId) {
+  const c = String(codigo || '').toUpperCase()
+  if (!c) return null
+  const previo = datos.codigosRegalo[c]
+  if (previo && previo !== chatId) return previo
+  datos.codigosRegalo[c] = chatId
+  guardar()
+  return null
+}

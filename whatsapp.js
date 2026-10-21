@@ -5,11 +5,12 @@ import pino from 'pino'
 import QRCode from 'qrcode'
 import makeWASocket, {
   DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore, generateMessageIDV2, jidNormalizedUser, Browsers
+  makeCacheableSignalKeyStore, generateMessageIDV2, jidNormalizedUser, Browsers, downloadMediaMessage
 } from 'baileys'
 import { config, ajustes } from './config.js'
 import { crearManejador } from './manejador.js'
 import { obtenerChat, crearOActualizarChat, agregarAlHistorial } from './almacen.js'
+import { transcribirAudio } from './audio.js'
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' })
 const carpetaSesion = path.join(config.carpetaDatos, 'sesion-whatsapp')
@@ -85,6 +86,15 @@ const manejador = crearManejador({
     }
   },
   marcarLeido: async (llaves) => { await sock?.readMessages(llaves) },
+  conectado: () => estadoWA.conectado,
+  // nota de voz → texto (OpenAI). Descarga el audio del mensaje y lo transcribe.
+  transcribir: async (msg) => {
+    if (!process.env.OPENAI_API_KEY) return ''
+    const audio = msg.message?.audioMessage || msg.message?.ephemeralMessage?.message?.audioMessage
+    if (Number(audio?.seconds || 0) > 600) return '' // más de 10 minutos: mejor que lo escuche Tomás
+    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage })
+    return transcribirAudio(buffer, audio?.mimetype || 'audio/ogg')
+  },
   esIdDelBot: (id) => idsDelBot.has(id),
   esChatPropio: (jid) => {
     const yo = sock?.user
@@ -138,11 +148,11 @@ export async function iniciarWhatsApp () {
       console.log('✅ WhatsApp conectado como', estadoWA.numero)
       cargarGrupos()
       if (!temporizadorRecordatorios) {
-        // revisa recordatorios cada 5 minutos
+        // cada 5 minutos: recordatorios, seguimientos y reintentos del CRM
         temporizadorRecordatorios = setInterval(() => {
-          if (estadoWA.conectado) manejador.revisarRecordatorios().catch(e => console.error('Recordatorios:', e.message))
+          if (estadoWA.conectado) manejador.revisarTodo().catch(e => console.error('Revisión:', e.message))
         }, 5 * 60_000)
-        setTimeout(() => manejador.revisarRecordatorios().catch(() => {}), 60_000)
+        setTimeout(() => manejador.revisarTodo().catch(() => {}), 60_000)
       }
     }
     if (connection === 'close') {
@@ -188,6 +198,9 @@ export async function enviarComoTomas (jid, texto) {
 
 /** El bot contesta ya en un chat recién activado desde la app (si el cliente fue el último en escribir) */
 export function contestarAhora (jid) { manejador.contestarAhora(jid) }
+
+/** Tomás toma el chat desde la app: Sofía se calla y le llega un resumen */
+export function tomarChat (jid) { manejador.tomarChat(jid) }
 
 /** Desvincula este servidor de WhatsApp (para vincular otro número) */
 export async function desvincular () {

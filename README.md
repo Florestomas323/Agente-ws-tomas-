@@ -1,6 +1,6 @@
 # Royal Cita IA — agente de citas por WhatsApp (Impact Enterprises)
 
-El bot se presenta como **Sofía**, la asistente virtual de Tomás. Su único objetivo es **agendar citas de 30 a 40 minutos**: primero presencial y, si no se puede, por Google Meet. Nunca da precios. Por aceptar la cita, el cliente recibe un regalo premium para su cocina.
+El bot se presenta como **Sofía, del equipo de Tomás** (sin decir "asistente virtual" y sin nombrar la marca: habla de *productos premium para la cocina*). Su único objetivo es **agendar citas de 30 a 40 minutos**: primero presencial y, si no se puede, por Google Meet. Si preguntan el precio, dice que hay financiamiento desde $50 al mes y también cash, e invita a la cita. Por aceptar la cita, el cliente recibe un regalo premium para su cocina (por Meet, se le envía a su casa después de la demo). Si alguien le pregunta en serio si es una IA, no lo niega.
 
 Contesta solo a las personas que te escriben desde tus campañas de Facebook/Instagram, las califica, les ofrece horarios libres de tu Google Calendar y agenda la demostración. Cuando agenda o cuando necesita que tú intervengas, te avisa por WhatsApp.
 
@@ -19,7 +19,13 @@ Todo se instala desde el iPhone: **GitHub** (código) → **Railway** (servidor 
 | Cliente actual, queja, duda que no sabe, zona que no cubres | Te avisa (“Te toca a ti”) y deja de contestar en ese chat |
 | Cliente manda varios mensajes seguidos | Espera unos segundos y contesta todo junto |
 | Cada respuesta | Pone el visto, se toma un momento, aparece “escribiendo…” al ritmo de una persona y nunca tarda exactamente lo mismo |
-| Agenda una cita | Crea el evento en tu Google Calendar (azul Pavo real) y te manda el resumen |
+| Agenda una cita | Propone 2 horarios concretos, crea el evento en tu Google Calendar (azul Pavo real; en Georgia invita a Carlos) y te manda el resumen |
+| Llega por una promoción (ej. El Sombrero Encantado) | Explica la condición (demo de ~40 min), pide ciudad y código postal, aparta la cita y **después** manda el enlace del juego; al volver con «Reclamar premio» registra el regalo |
+| Quiere cambiar la cita | Aparta la nueva hora y solo entonces suelta la anterior |
+| Manda una nota de voz | La transcribe (con `OPENAI_API_KEY`) y contesta normal |
+| No agenda y deja de contestar | Le escribe un seguimiento a las 24 h y otro a los 3 días; para si dice que no |
+| Tú tomas un chat | Te manda un resumen de la conversación |
+| El servidor estuvo apagado | Contesta lo que llegó en las últimas 24 h, pidiendo disculpas por la demora |
 
 Cuando vinculas el número, todos los chats que ya existían quedan marcados como “ignorados”, así el bot nunca les contesta a tus clientes actuales.
 
@@ -53,6 +59,7 @@ En console.anthropic.com → **API Keys** → **Create Key**. Cópiala; la usar�
 | `ROYAL_SALES_URL` | dirección de Royal Sales IA (por ejemplo `https://royal-sales-ia.vercel.app`) |
 | `CRM_CLAVE_IMPACT` | clave de integración del workspace **Impact Enterprises** (Texas y clientes de otros estados) |
 | `CRM_CLAVE_APC` | clave de integración del workspace **APC Millenium** (Georgia) |
+| `OPENAI_API_KEY` | *(opcional)* para que Sofía entienda las notas de voz (ver abajo) |
 | `MEET_LINK` | *(opcional)* enlace fijo de Meet de respaldo, solo si no usas el calendario |
 
 5. **Settings → Networking → Generate Domain**. Esa dirección es tu **panel**. Guárdala en tu pantalla de inicio.
@@ -121,6 +128,19 @@ Variables de Railway para el CRM:
 | `CRM_CLAVE_TX_CENTRAL`, `CRM_CLAVE_DFW`, … | la clave de integración de cada cuenta (en Royal Sales IA: Integraciones → Sitio web). Un nombre por zona, el que pusiste en `crmClaveVariable` |
 | `CRM_CLAVE` | *(opcional)* clave única si todo va a una sola cuenta |
 
+## Notas de voz (OpenAI)
+1. En Safari entra a **platform.openai.com** e inicia sesión (o crea la cuenta).
+2. Menú → **Billing** → agrega una tarjeta y carga $5 (alcanza para muchísimos audios: cuesta menos de 1 centavo por minuto).
+3. Menú → **API keys** → **Create new secret key** → nombre `Royal Cita` → copia la clave (empieza con `sk-`).
+4. En Railway → tu servicio → **Variables** → **New Variable**: `OPENAI_API_KEY` = la clave. Railway se reinicia solo.
+Sin esta clave, Sofía sigue funcionando; si un audio es necesario para seguir, te pasa el chat.
+
+## Promociones por anuncio (`ofertas` en ajustes.json)
+Cada promoción tiene sus palabras (las que trae el anuncio o el mensaje prellenado), la zona donde se usa por defecto, los estados donde vale, el enlace y lo que Sofía debe saber. Ya viene **El Sombrero Encantado** para Georgia. El botón «Reclamar premio» del juego debe abrir WhatsApp con un texto así: `🎁 Gané: Chocolatera · Código SE-4F7K` — Sofía guarda el regalo, lo pasa al CRM y vigila que cada código se use una sola vez.
+
+## Royal Sales IA (CRM)
+El prospecto entra al workspace de su zona y se mantiene al día solo: etapa de Sofía, regalo, cita agendada, reprogramada, confirmada o cancelada (la cita aparece en la agenda de Royal Sales IA) y "no interesado". Si Royal Sales IA no responde, el bot reintenta durante un día y, si aun así falla, te avisa. *Demostración realizada* y *venta* las marcas tú en Royal Sales IA. Para los estados, Royal Sales IA necesita la ruta nueva `/api/website/leads/status` (viene en los zips de Royal Sales IA).
+
 ## La app
 Tu panel es una app: ábrela en Safari, toca **Compartir → Agregar a pantalla de inicio** y queda con su ícono, a pantalla completa.
 - **Hoy**: quién te está esperando ("te toca a ti"), los números de la semana y las próximas citas.
@@ -150,7 +170,8 @@ Baileys no es la API oficial; WhatsApp puede bloquear números que usan automati
 | `calendario.js` | Horarios libres y creación de citas |
 | `almacen.js` | Guarda chats y citas en `/data` |
 | `zonas.js` | Zonas por estado: detección por anuncio y ciudad |
-| `crm.js` | Envía prospectos y citas al CRM de cada zona |
+| `crm.js` | Mantiene al día el CRM de cada zona (con reintentos) |
+| `audio.js` | Transcribe las notas de voz (OpenAI) |
 | `panel.js` | Servidor de la app y sus datos |
 | `app.html` | La app (pantallas Hoy, Chats, Citas, Ajustes) |
 | `icono.js` | Ícono de la app |

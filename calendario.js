@@ -2,6 +2,7 @@
 // Reglas: cualquier hora dentro del horario de atención (por día), máximo N citas en el mismo lapso
 // por cada persona que atiende. Presencial: en la hora local de la zona. Meet: dentro del horario de Tomás (Texas).
 // Si hay Apps Script (CALENDARIO_URL), crea el evento en Google Calendar (con Meet si es virtual).
+import crypto from 'node:crypto'
 import { DateTime } from 'luxon'
 import { config, ajustes } from './config.js'
 import { listarCitas, agregarCita, actualizarCita } from './almacen.js'
@@ -86,6 +87,37 @@ function rangos (libres) {
   return grupos.map(([a, b]) => +a === +b ? soloHora(a) : `${soloHora(a)} a ${soloHora(b)}`).join(' y ')
 }
 
+/** El hueco libre más cercano a la hora sugerida del día (ajustes.horasSugeridas), o null */
+function preferido (libres) {
+  if (!libres.length) return null
+  const d = libres[0]
+  const h = ajustes.horasSugeridas?.[DIAS[d.weekday]]
+  if (!h) return libres[Math.floor(libres.length / 2)]
+  const [hh, mm] = String(h).split(':').map(Number)
+  const meta = d.startOf('day').set({ hour: hh, minute: mm || 0 })
+  return [...libres].sort((a, b) => Math.abs(a - meta) - Math.abs(b - meta))[0]
+}
+
+/** Dos horarios concretos para proponer: en dos días distintos, o dos horas separadas si es un solo día */
+function sugerir ({ fecha, tz, zona, modalidad }) {
+  const fmt = (t) => ({ inicio: t.toISO(), texto: formatoHumano(t) })
+  if (fecha) {
+    const libres = libresDelDia(fecha, tz, zona, modalidad)
+    const a = preferido(libres)
+    if (!a) return []
+    const b = [...libres].filter(t => Math.abs(t - a) >= 2 * 3600_000)
+      .sort((x, y) => Math.abs(x - a) - Math.abs(y - a))[0] || libres.find(t => +t !== +a)
+    return [a, b].filter(Boolean).sort((x, y) => x - y).map(fmt)
+  }
+  const hoy = ahora(tz)
+  const elegidas = []
+  for (let i = 0; i <= (ajustes.diasAMostrar || 7) && elegidas.length < 2; i++) {
+    const t = preferido(libresDelDia(hoy.plus({ days: i }).toISODate(), tz, zona, modalidad))
+    if (t) elegidas.push(t)
+  }
+  return elegidas.map(fmt)
+}
+
 /**
  * Consulta disponibilidad, siempre respondiendo en la hora local del cliente.
  * - con fecha y hora: si esa hora está libre o las alternativas más cercanas
@@ -111,7 +143,7 @@ export function consultarDisponibilidad ({ fecha, hora, zona, modalidad, tzClien
     const libres = libresDelDia(fecha, tz, zona, modalidad)
     const dia = DateTime.fromISO(fecha, { zone: tz }).setLocale('es').toFormat("cccc d 'de' LLLL")
     return libres.length
-      ? { fecha, dia, libre: rangos(libres), nota: 'Pregúntale qué hora prefiere dentro de esos rangos y consulta con fecha y hora.' }
+      ? { fecha, dia, libre: rangos(libres), sugerencias: sugerir({ fecha, tz, zona, modalidad }), nota: 'Propónle las dos sugerencias (inicio exacto). Si no le sirven, pregúntale qué hora prefiere dentro de esos rangos y consulta con fecha y hora.' }
       : { fecha, dia, libre: '', nota: 'Ese día no hay horarios libres.' }
   }
   const hoy = ahora(tz)
@@ -121,7 +153,11 @@ export function consultarDisponibilidad ({ fecha, hora, zona, modalidad, tzClien
     const libres = libresDelDia(f, tz, zona, modalidad)
     if (libres.length) dias.push({ fecha: f, dia: hoy.plus({ days: i }).setLocale('es').toFormat("cccc d 'de' LLLL"), libre: rangos(libres) })
   }
-  return { proximosDias: dias, nota: 'Horas en la hora local del cliente. Pregúntale qué día y hora prefiere.' }
+  return {
+    sugerencias: sugerir({ tz, zona, modalidad }),
+    proximosDias: dias,
+    nota: 'Horas en la hora local del cliente. Propónle las dos sugerencias en una sola pregunta ("¿te queda mejor X o Y?"). Para agendar una sugerencia, usa su "inicio" exacto.'
+  }
 }
 
 /** Fecha de una cita en la hora local del cliente, con la hora de Texas si es distinta */
@@ -152,12 +188,17 @@ function etiquetaEstado (zona, estadoUS) {
   return (zona?.nombre || nombreEstado(estadoUS) || 'Sin estado').toUpperCase()
 }
 
+/** Correos invitados: los de siempre (Angy) + los de la zona (Carlos en Georgia), sin repetir */
+export function invitadosDe (zona) {
+  return [...new Set([...(ajustes.calendario?.invitados || []), ...(zona?.invitados || [])].map(c => String(c).trim().toLowerCase()).filter(c => c.includes('@')))]
+}
+
 /** Crea la cita (revalida el cupo). Si hay Apps Script, la pone en Google Calendar (con Meet si es virtual). */
-export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccion, ciudad, notas, zona, estadoUS, modalidad = 'presencial', tzCliente = '' }) {
+export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccion, ciudad, notas, zona, estadoUS, modalidad = 'presencial', tzCliente = '', excluirId = null, codigoPostal = '', extraDescripcion = '' }) {
   const esMeet = modalidad === 'meet'
   const inicio = DateTime.fromISO(inicioISO, { setZone: true })
   if (!inicio.isValid) throw new Error('Fecha y hora inválidas')
-  const v = validarHora(inicio, zona, modalidad)
+  const v = validarHora(inicio, zona, modalidad, excluirId)
   if (!v.ok) return { ok: false, motivo: v.motivo + ' Consulta otra hora.' }
   const fin = inicio.plus({ minutes: duracionMin() })
   const { tz, atiende } = reglas(zona, modalidad)
@@ -170,12 +211,27 @@ export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccio
     ciudad ? `Ciudad: ${ciudad}${estadoUS ? ', ' + nombreEstado(estadoUS) : ''}` : '',
     `Atiende: ${atiende}`,
     notas ? `Notas: ${notas}` : '',
+    extraDescripcion,
     '',
     'Agendada por Sofía (Royal Cita IA).'
   ].filter(Boolean).join('\n')
 
-  let eventoId = null
-  let meetEnlace = esMeet ? (config.meetEnlace || '') : ''
+  // la cita se guarda YA (aparta el cupo) y después se crea en Google Calendar,
+  // así dos chats al mismo tiempo no pueden pasarse del tope de citas simultáneas
+  const cita = {
+    id: 'c' + Date.now() + crypto.randomUUID().slice(0, 8),
+    chatId, telefono, nombre, ciudad, notas,
+    direccion: esMeet ? '' : direccion,
+    modalidad: esMeet ? 'meet' : 'presencial',
+    meetEnlace: esMeet ? (config.meetEnlace || '') : '',
+    inicio: inicio.toISO(), fin: fin.toISO(),
+    zona: zona?.id || '', zonaNombre: zona?.nombre || '', zonaHoraria: tz, tzCliente: tzCliente || tz,
+    estadoUS: estadoUS || '', codigoPostal: codigoPostal || '', atiende,
+    eventoId: null, estado: 'agendada', creada: Date.now(),
+    recordatorio: null, confirmacion: null
+  }
+  agregarCita(cita)
+
   let errorCalendario = ''
   if (config.calendarioUrl) {
     try {
@@ -188,29 +244,14 @@ export async function crearCita ({ chatId, telefono, nombre, inicioISO, direccio
         ubicacion: esMeet ? '' : direccion,
         meet: esMeet,
         colorId: ajustes.calendario?.colorId || '7',
-        invitados: ajustes.calendario?.invitados || []
+        invitados: invitadosDe(zona)
       })
-      eventoId = r.id || null
-      if (esMeet && r.meet) meetEnlace = r.meet
+      actualizarCita(cita.id, { eventoId: r.id || null, ...(esMeet && r.meet ? { meetEnlace: r.meet } : {}) })
     } catch (e) {
       errorCalendario = e.message
       console.error('No pude crear el evento en Google Calendar:', e.message)
     }
   }
-
-  const cita = {
-    id: 'c' + Date.now() + Math.floor(Math.random() * 1000),
-    chatId, telefono, nombre, ciudad, notas,
-    direccion: esMeet ? '' : direccion,
-    modalidad: esMeet ? 'meet' : 'presencial',
-    meetEnlace,
-    inicio: inicio.toISO(), fin: fin.toISO(),
-    zona: zona?.id || '', zonaNombre: zona?.nombre || '', zonaHoraria: tz, tzCliente: tzCliente || tz,
-    estadoUS: estadoUS || '', atiende,
-    eventoId, estado: 'agendada', creada: Date.now(),
-    recordatorio: null, confirmacion: null
-  }
-  agregarCita(cita)
   return { ok: true, cita, errorCalendario }
 }
 

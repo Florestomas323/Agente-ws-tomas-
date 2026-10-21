@@ -398,6 +398,8 @@ a{color:inherit}
       </div>
       ${avisoEstado}</div>
       ${c.anuncio || c.origen ? `<div class="suave pequeno" style="margin:-4px 0 10px">${c.origen === 'anuncio' ? 'Llegó por el anuncio' + (c.anuncio ? ': ' + esc(c.anuncio) : '') : 'Llegó por: ' + esc(c.origen)}${c.crm ? ' · enviado al CRM' : ''}</div>` : ''}
+      ${c.avance || c.oferta || c.regalo ? `<div class="suave pequeno" style="margin:-4px 0 10px">${[c.avance ? 'Etapa: ' + esc(c.avance) : '', c.oferta ? '🎁 ' + esc(c.oferta) : '', c.regalo ? 'Regalo: ' + esc(c.regalo) : '', c.seguimientos ? 'Seguimientos: ' + c.seguimientos : '', c.noInteresado ? 'No le interesa' : ''].filter(Boolean).join(' · ')}</div>` : ''}
+      ${c.resumen && c.estado !== 'prospecto' ? `<div class="aviso-estado" style="display:block;margin:0 0 12px"><div class="pequeno suave" style="margin-bottom:4px">Resumen para ti</div><div style="white-space:pre-line">${esc(c.resumen)}</div></div>` : ''}
       ${citas.length ? `<div class="lista" style="margin-bottom:12px">${citas.map(filaCita).join('')}</div>` : ''}
       <div class="mensajes">${mensajes || '<div class="vacio">Sin mensajes guardados.</div>'}</div>
       <div class="redactar">
