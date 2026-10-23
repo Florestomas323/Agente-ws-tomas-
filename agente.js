@@ -7,7 +7,7 @@ import { consultarDisponibilidad, crearCita, cancelarCita, formatoHumano, format
 import { obtenerChat, crearOActualizarChat, listarCitas, actualizarCita } from './almacen.js'
 import {
   hayZonas, zonaPorId, zonaDesdeUbicacion, zonasParaIA, codigoEstado, nombreEstado, quienAtiende, zonaHorariaDe,
-  zonaHorariaEstado, estadoDesdeZip, ofertaPorId, ofertaValeEn
+  zonaHorariaEstado, estadoDesdeZip, ofertaPorId, ofertaValeEn, equipoDe
 } from './zonas.js'
 
 let clienteIA = null
@@ -49,7 +49,7 @@ const HERRAMIENTAS = [
   },
   {
     name: 'acepto_demostracion',
-    description: 'Registra que el cliente aceptó recibir la demostración (por ejemplo, cuando dice que sí a la condición de la promoción). No agenda nada.',
+    description: 'Registra que el cliente aceptó la cita para recibir su regalo (antes de elegir horario). No agenda nada.',
     input_schema: { type: 'object', properties: {} }
   },
   {
@@ -103,7 +103,7 @@ const HERRAMIENTAS = [
   },
   {
     name: 'marcar_no_interesado',
-    description: 'Úsala cuando la persona dice claramente que no le interesa o que no quiere la demostración. Así no se le vuelve a escribir.',
+    description: 'Úsala cuando la persona dice claramente que no le interesa o que no quiere la cita. Así no se le vuelve a escribir.',
     input_schema: { type: 'object', properties: { motivo: { type: 'string' } }, required: ['motivo'] }
   },
   {
@@ -160,7 +160,12 @@ function sistema (chat, { seguimiento = false } = {}) {
   // demora: solo si el último mensaje es del cliente y nadie le contestó (no en seguimientos)
   const ultimoMsg = (chat.historial || []).at(-1)
   const demora = !seguimiento && ultimoMsg?.rol === 'cliente' ? Date.now() - ultimoMsg.t : 0
+  const equipo = equipoDe(zona)
+  const esEquipoTomas = /tom[aá]s/i.test(equipo)
   const contexto = [
+    zona || chat.ciudad
+      ? `Te presentas como "Sofía, del equipo de ${equipo}".${esEquipoTomas ? '' : ' En esta conversación no menciones a Tomás: todo es el equipo de ' + equipo + '.'}`
+      : 'Todavía no sabes de qué estado es: preséntate solo como Sofía, sin decir de qué equipo, y pide primero su nombre.',
     `Fecha y hora actual: ${formatoHumano(DateTime.now().setZone(tzDelCliente(chat)))} (hora local del cliente${chat.estadoUS || zona ? '' : ', supuesta de Texas'}).`,
     demora > 60 * 60_000 ? `Su último mensaje llegó hace ${hace(demora)} y no se le había contestado: empieza disculpándote en pocas palabras por la demora.` : '',
     chat.nombre ? `Nombre de perfil de WhatsApp del cliente: ${chat.nombre} (confírmalo, puede no ser su nombre real).` : '',
@@ -168,15 +173,15 @@ function sistema (chat, { seguimiento = false } = {}) {
     chat.origen === 'anuncio' ? 'Este cliente llegó desde un anuncio de Facebook/Instagram.' : '',
     chat.anuncio ? `Anuncio: ${chat.anuncio}` : '',
     chat.ciudad ? `Ubicación guardada: ${chat.ciudad}${chat.estadoUS ? ', ' + nombreEstado(chat.estadoUS) : ''}${chat.codigoPostal ? ' ' + chat.codigoPostal : ''}.` : 'Todavía no sabes dónde vive: pregúntale su ciudad y código postal.',
-    zona && chat.ciudad ? `Zona: ${zona.nombre || zona.id}. La cita presencial la atiende ${quienAtiende(zona)}${quienAtiende(zona) !== 'Tomás' ? ' (asesor del equipo de Tomás)' : ''}; por Meet la atiende Tomás.` : '',
+    zona && chat.ciudad ? `Zona: ${zona.nombre || zona.id}. La cita presencial la atiende un asesor del equipo de ${equipo}; por Meet, "un asesor del equipo".` : '',
     zona && !chat.ciudad ? `Por el anuncio, parece de ${zona.nombre || zona.id}. Confirma su ciudad y código postal con guardar_ubicacion antes de consultar horarios.` : '',
-    !zona && chat.ciudad && hayZonas() ? 'Vive fuera de las zonas presenciales: la cita solo puede ser por Google Meet con Tomás.' : '',
-    chat.aceptoDemo ? 'Ya aceptó recibir la demostración.' : '',
+    !zona && chat.ciudad && hayZonas() ? 'Vive fuera de las zonas presenciales: la cita solo puede ser por Google Meet con un asesor del equipo.' : '',
+    chat.aceptoDemo ? 'Ya aceptó la cita para recibir su regalo.' : '',
     citas.length ? `Este cliente YA tiene cita: ${citas.map(describir).join('; ')}.` : 'Este cliente todavía no tiene cita.',
     ofertaOriginal && !oferta ? `Llegó por la promoción "${ofertaOriginal.nombre}", pero no aplica donde vive: no la menciones más ni envíes su enlace.` : '',
     oferta && chat.experienciaEnviada ? `Ya le enviaste el enlace de "${oferta.nombre}"; no lo repitas salvo que te lo pida.` : '',
     chat.regalo ? `Regalo que obtuvo en "${ofertaOriginal?.nombre || 'la promoción'}": ${chat.regalo.nombre}${chat.regalo.codigo ? ' (código ' + chat.regalo.codigo + ')' : ''}.` +
-      (chat.regalo.duplicado ? ' OJO: ese código ya lo había usado otra persona. No confirmes el regalo; dile con amabilidad que el equipo lo revisa y sigue con la cita.' : ' Celébralo en una frase y sigue con la coordinación de su cita. Si es por Meet, el regalo se lo enviamos a su casa después de la demostración.') : ''
+      (chat.regalo.duplicado ? ' OJO: ese código ya lo había usado otra persona. No confirmes el regalo; dile con amabilidad que el equipo lo revisa y sigue con la cita.' : ' Celébralo en una frase y sigue con la coordinación de su cita. Si es por Meet, el regalo se lo enviamos a su casa después de la videollamada.') : ''
   ].filter(Boolean).join('\n')
 
   const bloqueZonas = listado
@@ -193,7 +198,7 @@ function aMensajes (historial) {
   const msgs = []
   for (const h of historial) {
     const role = h.rol === 'cliente' ? 'user' : 'assistant'
-    const texto = h.rol === 'tomas' ? `[Tomás escribió personalmente]: ${h.texto}` : h.texto
+    const texto = h.rol === 'tomas' ? `[Un asesor del equipo escribió personalmente]: ${h.texto}` : h.texto
     const ultimo = msgs[msgs.length - 1]
     if (ultimo && ultimo.role === role) ultimo.content += '\n' + texto
     else msgs.push({ role, content: texto })
@@ -285,7 +290,7 @@ function extraCalendario (chat, modalidad) {
   return [
     o ? `Promoción: ${o.nombre}` : '',
     chat.regalo ? `Regalo obtenido: ${chat.regalo.nombre}${chat.regalo.codigo ? ' (' + chat.regalo.codigo + ')' : ''}` : '',
-    modalidad === 'meet' ? 'Regalo: se envía a su casa después de la demostración.' : ''
+    modalidad === 'meet' ? 'Regalo: se envía a su casa después de la videollamada.' : ''
   ].filter(Boolean).join('\n')
 }
 
@@ -336,7 +341,7 @@ async function ejecutar (nombre, entrada, chat, resultado) {
 
   if (nombre === 'acepto_demostracion') {
     crearOActualizarChat(chat.id, { aceptoDemo: Date.now() })
-    marcarAvance(chat.id, 'acepto', 'Aceptó la demostración')
+    marcarAvance(chat.id, 'acepto', 'Aceptó la cita')
     resultado.aceptoDemo = true
     return { ok: true, nota: 'Ahora propón dos horarios con consultar_disponibilidad.' }
   }
@@ -372,8 +377,8 @@ async function ejecutar (nombre, entrada, chat, resultado) {
     const o = ofertaActiva(obtenerChat(chat.id))
     const sigue = o && !chat.experienciaEnviada ? ` Después de confirmarle la cita, usa enviar_experiencia para mandarle el enlace de "${o.nombre}".` : ''
     return modalidad === 'meet'
-      ? { agendada: true, modalidad: 'meet', cuando, enlaceMeet: r.cita.meetEnlace || null, nota: (r.cita.meetEnlace ? 'Comparte el enlace de Google Meet con el cliente.' : 'Dile que le enviarán el enlace de Google Meet antes de la cita.') + ' El regalo se lo enviamos a su casa después de la demostración.' + sigue }
-      : { agendada: true, modalidad: 'presencial', cuando, direccion: r.cita.direccion, nota: sigue.trim() || undefined }
+      ? { agendada: true, modalidad: 'meet', cuando, enlaceMeet: r.cita.meetEnlace || null, nota: (r.cita.meetEnlace ? 'Comparte el enlace de Google Meet con el cliente.' : 'Dile que le enviarán el enlace de Google Meet antes de la cita.') + ' En la confirmación di la frase de la entrega del regalo con la breve información de salud y la demostración sin compromiso, y que el regalo se lo enviamos a su casa después de la videollamada.' + sigue }
+      : { agendada: true, modalidad: 'presencial', cuando, direccion: r.cita.direccion, nota: ('Confírmale día, hora y dirección, y di por primera vez: "Con la entrega de tu regalo premium para tu cocina te daremos una breve información de salud y una demostración de nuestros productos, sin compromiso."' + sigue) }
   }
 
   if (nombre === 'reprogramar_cita') {
@@ -447,7 +452,7 @@ async function ejecutar (nombre, entrada, chat, resultado) {
 
   if (nombre === 'pasar_a_humano') {
     resultado.humano = { motivo: entrada.motivo, resumen: entrada.resumen }
-    return { ok: true, nota: 'Tomás fue avisado. Despídete brevemente diciendo que Tomás le escribirá pronto.' }
+    return { ok: true, nota: 'El equipo fue avisado. Despídete brevemente diciendo que un asesor del equipo le escribirá pronto (no digas nombres).' }
   }
   return { error: 'Herramienta desconocida' }
 }

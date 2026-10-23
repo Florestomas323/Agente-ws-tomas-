@@ -68,6 +68,8 @@
   "_horasSugeridas": "Sofía propone 2 horarios concretos: busca un hueco libre lo más cerca posible de esta hora (hora local del cliente), en dos días distintos.",
   "atiendeMeet": "Tomás",
   "_atiendeMeet": "Quién atiende las citas por Google Meet (de cualquier estado).",
+  "equipoPorDefecto": "Tomás Flores",
+  "_equipoPorDefecto": "Nombre con el que Sofía se presenta (\"Sofía, del equipo de …\") cuando la zona no dice otro (Texas y clientes de otros estados). Cada zona puede tener su propio \"equipo\".",
   "zonas": [
     {
       "id": "texas",
@@ -84,7 +86,8 @@
       "avisarA": [],
       "avisarGrupo": "",
       "crmClaveVariable": "CRM_CLAVE_IMPACT",
-      "invitados": []
+      "invitados": [],
+      "equipo": "Tomás Flores"
     },
     {
       "id": "georgia",
@@ -104,10 +107,32 @@
       "crmClaveVariable": "CRM_CLAVE_APC",
       "invitados": [
         "apcmilleniumsion@gmail.com"
-      ]
+      ],
+      "equipo": "Carlos Aguirre"
+    },
+    {
+      "id": "luisiana",
+      "nombre": "Luisiana",
+      "estados": [
+        "LA"
+      ],
+      "ciudades": [],
+      "palabrasAnuncio": [
+        "Louisiana",
+        "Luisiana"
+      ],
+      "zonaHoraria": "America/Chicago",
+      "atiende": "Carlos Aguirre",
+      "avisarA": [],
+      "avisarGrupo": "APC Millenium",
+      "crmClaveVariable": "CRM_CLAVE_APC",
+      "invitados": [
+        "apcmilleniumsion@gmail.com"
+      ],
+      "equipo": "Carlos Aguirre"
     }
   ],
-  "_zonas": "Una zona por estado. palabrasAnuncio: palabra que va en el título del anuncio (o en el mensaje prellenado). atiende: quién va a las citas presenciales. avisarA: WhatsApp extra para avisos (con 1 adelante). avisarGrupo: nombre exacto del grupo de WhatsApp que recibe los avisos de la zona (tu número debe estar dentro); las citas por Meet solo te llegan a ti. invitados: correos extra que reciben en el calendario las citas de esta zona (Carlos en Georgia). crmClaveVariable: variable de Railway con la clave de integración del workspace de Royal Sales IA.",
+  "_zonas": "Una zona por estado. palabrasAnuncio: palabra que va en el título del anuncio (o en el mensaje prellenado). atiende: quién va a las citas presenciales. avisarA: WhatsApp extra para avisos (con 1 adelante). avisarGrupo: nombre exacto del grupo de WhatsApp que recibe los avisos de la zona (tu número debe estar dentro); las citas por Meet solo te llegan a ti. equipo: con qué nombre se presenta Sofía (\"del equipo de Carlos Aguirre\"). invitados: correos extra que reciben en el calendario las citas de esta zona (Carlos en Georgia). crmClaveVariable: variable de Railway con la clave de integración del workspace de Royal Sales IA.",
   "crmClaveVariableSinZona": "CRM_CLAVE_IMPACT",
   "_crmClaveVariableSinZona": "Workspace de Royal Sales IA para clientes de otros estados (citas por Meet).",
   "avisarNuevoProspecto": true,
@@ -160,14 +185,16 @@
         "sombreros"
       ],
       "zonasPorDefecto": [
-        "georgia"
+        "georgia",
+        "luisiana"
       ],
       "estados": [
-        "GA"
+        "GA",
+        "LA"
       ],
       "enlace": "https://www.apcmilleniumsion.com/sombreroencantado",
       "mensajeEnlace": "🎩✨ ¡Llegó el momento de descubrir tu regalo!\n\nTenemos cinco sombreros encantados, cada uno con una sorpresa diferente. Entra aquí para elegir el tuyo:\n{enlace}\n\nCuando descubras tu regalo, toca «Reclamar premio» y me llega por aquí 🎁",
-      "instrucciones": "La persona viene de la promoción \"El Sombrero Encantado\": elige uno de cinco sombreros y descubre un regalo. Para recibirlo se requiere una demostración de unos 40 minutos; díselo desde el primer mensaje, con naturalidad (es una condición, no un regalo incondicional). Pide su ciudad y su código postal. Cuando acepte la demostración, propón dos horarios y aparta la cita. Solo DESPUÉS de agendar usa enviar_experiencia para mandarle el enlace de los sombreros. No prometas un regalo concreto antes de que lo descubra. Una participación por persona."
+      "instrucciones": "La persona viene de la promoción \"El Sombrero Encantado\": elige uno de cinco sombreros y descubre un regalo premium para su cocina. Primero pide su nombre; después su ciudad y su código postal. Ofrece pasar a su casa a entregarle su regalo (gratis, sin compromiso, unos 30 a 40 minutos) y propón dos horarios. Igual que siempre, no menciones la demostración hasta confirmar la cita (salvo que pregunte directamente qué pasa en la cita). Solo DESPUÉS de agendar y confirmar, usa enviar_experiencia para mandarle el enlace de los sombreros. No prometas un regalo concreto antes de que lo descubra. Una participación por persona."
     }
   ],
   "_ofertas": "Promociones por anuncio. palabras: si el anuncio o el primer mensaje las trae, se usa la oferta. zonasPorDefecto: también se usa con cualquier anuncio de esa zona. estados: dónde vale (si el cliente vive en otro estado, no se le envía y te aviso). mensajeEnlace: se envía tal cual después de agendar ({enlace} se reemplaza). instrucciones: lo que Sofía debe saber de la oferta."

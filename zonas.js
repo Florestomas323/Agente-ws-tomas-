@@ -93,6 +93,8 @@ export function zonaHorariaEstado (cod) {
 export const zonaHorariaDe = (zona) => zona?.zonaHoraria || ajustes.zonaHoraria || 'America/Chicago'
 export const horariosDe = (zona) => zona?.horarios || ajustes.horarios || {}
 export const quienAtiende = (zona) => zona?.atiende || 'Tomás'
+/** Con qué nombre se presenta Sofía: "del equipo de …" */
+export const equipoDe = (zona) => zona?.equipo || ajustes.equipoPorDefecto || 'Tomás Flores'
 
 /** Grupos de WhatsApp (por nombre) que reciben los avisos de la zona */
 export function gruposDeZona (zona) {

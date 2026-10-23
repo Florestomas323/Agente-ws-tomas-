@@ -9,7 +9,7 @@ import {
   listarCitas, actualizarCita, listarChats, yaProcesado, registrarCodigoRegalo
 } from './almacen.js'
 import {
-  zonaDesdeAnuncio, zonaPorId, numerosDeZona, gruposDeZona, nombreEstado, hayZonas, quienAtiende, ofertaDesde, ofertaPorId
+  zonaDesdeAnuncio, zonaPorId, numerosDeZona, gruposDeZona, nombreEstado, hayZonas, quienAtiende, ofertaDesde, ofertaPorId, equipoDe
 } from './zonas.js'
 import { sincronizarProspecto, sincronizarEstado, procesarColaCrm, citaParaCrm } from './crm.js'
 
@@ -546,7 +546,7 @@ export function crearManejador (io) {
         const regalo = chat?.regalo && !chat.regalo.duplicado
           ? `Recuerda que tienes tu ${chat.regalo.nombre} 🎁`
           : 'Recuerda que tienes un regalo premium para tu cocina 🎁'
-        const texto = `¡Hola${nombre ? ' ' + nombre : ''}! Soy Sofía, del equipo de Tomás 😊 Te escribo para confirmar tu cita de mañana, ${cuando}, ${donde}.\n\n¿Nos confirmas que todo sigue en pie? ${regalo}`
+        const texto = `¡Hola${nombre ? ' ' + nombre : ''}! Soy Sofía, del equipo de ${equipoDe(zonaPorId(c.zona))} 😊 Te escribo para confirmar tu cita de mañana, ${cuando}, ${donde}.\n\n¿Nos confirmas que todo sigue en pie? ${regalo}`
         try {
           await io.enviarTexto(c.chatId, texto)
           if (chat) agregarAlHistorial(c.chatId, 'bot', texto)
