@@ -9,7 +9,7 @@ import {
   listarCitas, actualizarCita, listarChats, yaProcesado, registrarCodigoRegalo
 } from './almacen.js'
 import {
-  zonaDesdeAnuncio, zonaPorId, numerosDeZona, gruposDeZona, nombreEstado, hayZonas, quienAtiende, ofertaDesde, ofertaPorId, equipoDe
+  zonaDesdeAnuncio, zonaPorId, numerosDeZona, gruposDeZona, nombreEstado, hayZonas, quienAtiende, ofertaDesde, ofertaPorId, equipoDe, numeroBonito
 } from './zonas.js'
 import { sincronizarProspecto, sincronizarEstado, procesarColaCrm, citaParaCrm } from './crm.js'
 
@@ -190,7 +190,7 @@ export function crearManejador (io) {
       const texto = await resumir(jid)
       if (!texto) return
       crearOActualizarChat(jid, { resumen: { texto, t: Date.now() } })
-      await avisarDueno(`📋 *Resumen de ${chat.nombreReal || chat.nombre || 'este chat'}* (${como}; Sofía queda en pausa)\n${texto}\n📱 wa.me/${tel(chat, jid)}`)
+      await avisarDueno(`📋 *Resumen de ${chat.nombreReal || chat.nombre || 'este chat'}* (${como}; Sofía queda en pausa)\n${texto}\n📱 ${numeroBonito(tel(chat, jid))}`)
     } catch (e) {
       console.error('No pude hacer el resumen', jid, e.message)
     }
@@ -211,7 +211,7 @@ export function crearManejador (io) {
       const n = contarRespuesta(jid, ahora().toISODate())
       if (n > (ajustes.maxRespuestasPorChatAlDia || 40)) {
         crearOActualizarChat(jid, { estado: 'humano' })
-        await avisarZona(chat, `⚠️ El bot dejó de contestar a ${chat.nombre || ''} (wa.me/${tel(chat, jid)}) porque llegó al límite de mensajes del día. Revisa ese chat.`)
+        await avisarZona(chat, `⚠️ El bot dejó de contestar a ${chat.nombre || ''} (${numeroBonito(tel(chat, jid))}) porque llegó al límite de mensajes del día. Revisa ese chat.`)
         return
       }
 
@@ -258,7 +258,7 @@ export function crearManejador (io) {
       if (Date.now() - ult > 3600_000) {
         ultimoAvisoError.set(jid, Date.now())
         const chat = obtenerChat(jid)
-        await avisarDueno(`❌ El bot no pudo contestar a ${chat?.nombre || ''} (wa.me/${chat?.telefono || digitos(jid)}). Error: ${String(e.message).slice(0, 150)}. Contéstale tú.`).catch(() => {})
+        await avisarDueno(`❌ El bot no pudo contestar a ${chat?.nombre || ''} (${numeroBonito(chat?.telefono || digitos(jid))}). Error: ${String(e.message).slice(0, 150)}. Contéstale tú.`).catch(() => {})
       }
     } finally {
       ocupados.delete(jid)
@@ -273,11 +273,11 @@ export function crearManejador (io) {
       const ch = obtenerChat(jid)
       if (r.ubicacion.zonaNueva !== r.ubicacion.zonaAnterior || !ch.avisoUbicacion) {
         crearOActualizarChat(jid, { avisoUbicacion: Date.now(), zonaFuente: 'cliente' })
-        await avisarZona(ch, `🧭 *${ch.nombre || 'Prospecto'}* dijo dónde vive\n${etiquetaZona(ch)}${etiquetaOferta(ch)}\n📱 wa.me/${tel(ch, jid)}`)
+        await avisarZona(ch, `🧭 *${ch.nombre || 'Prospecto'}* dijo dónde vive\n${etiquetaZona(ch)}${etiquetaOferta(ch)}\n📱 ${numeroBonito(tel(ch, jid))}`)
       }
       if (r.ubicacion.fueraDeOferta && !ch.avisoFueraDeOferta) {
         crearOActualizarChat(jid, { avisoFueraDeOferta: Date.now() })
-        await avisarDueno(`⚠️ *${ch.nombre || 'Un prospecto'}* llegó por "${r.ubicacion.fueraDeOferta}" pero vive en ${[ch.ciudad, nombreEstado(ch.estadoUS)].filter(Boolean).join(', ') || 'otro estado'}.\n${zonaPorId(ch.zona) ? 'Sofía sigue con la cita normal (sin la promoción).' : 'Sofía le dijo que confirmas disponibilidad con el equipo.'}\n📱 wa.me/${tel(ch, jid)}`).catch(() => {})
+        await avisarDueno(`⚠️ *${ch.nombre || 'Un prospecto'}* llegó por "${r.ubicacion.fueraDeOferta}" pero vive en ${[ch.ciudad, nombreEstado(ch.estadoUS)].filter(Boolean).join(', ') || 'otro estado'}.\n${zonaPorId(ch.zona) ? 'Sofía sigue con la cita normal (sin la promoción).' : 'Sofía le dijo que confirmas disponibilidad con el equipo.'}\n📱 ${numeroBonito(tel(ch, jid))}`).catch(() => {})
       }
       sincronizarProspecto(jid)
       crm = true
@@ -287,7 +287,7 @@ export function crearManejador (io) {
       const c = r.cancelada
       const ch = obtenerChat(jid)
       await avisarZona(ch,
-        `❌ *${c.nombre} canceló su cita*\nEra: ${formatoCita(c)}\n${modalidadTexto(c)}\nDijo: "${String(c.motivo).slice(0, 160)}"\n📱 wa.me/${c.telefono || digitos(jid)}`,
+        `❌ *${c.nombre} canceló su cita*\nEra: ${formatoCita(c)}\n${modalidadTexto(c)}\nDijo: "${String(c.motivo).slice(0, 160)}"\n📱 ${numeroBonito(c.telefono || digitos(jid))}`,
         { modalidad: c.modalidad })
       sincronizarEstado(jid, 'appointment_cancelled', { appointment: citaParaCrm(c, formatoCita(c)) })
       crm = true
@@ -300,7 +300,7 @@ export function crearManejador (io) {
       await avisarZona(ch,
         `🔁 *${nueva.nombre} cambió su cita*\nAntes: ${formatoCita(anterior)}\nAhora: ${formatoCita(nueva)}\n${modalidadTexto(nueva)}` +
         `\n👤 Atiende: ${nueva.atiende}` + (motivo ? `\nDijo: "${String(motivo).slice(0, 160)}"` : '') +
-        `\n📱 wa.me/${nueva.telefono || digitos(jid)}`,
+        `\n📱 ${numeroBonito(nueva.telefono || digitos(jid))}`,
         { modalidad })
       if (r.errorCalendario) await avisarDueno(`⚠️ La nueva cita de ${nueva.nombre} quedó guardada, pero no pude crearla en Google Calendar: ${r.errorCalendario}`).catch(() => {})
       sincronizarEstado(jid, 'appointment_rescheduled', {
@@ -316,7 +316,7 @@ export function crearManejador (io) {
       await avisarZona(ch,
         `🗓️ *Nueva cita agendada*\n${c.nombre}\n${formatoCita(c)}\n${modalidadTexto(c)}` +
         `\n👤 Atiende: ${c.atiende}` +
-        `\n📱 wa.me/${c.telefono || digitos(jid)}` + (c.notas ? `\n📝 ${c.notas}` : '') +
+        `\n📱 ${numeroBonito(c.telefono || digitos(jid))}` + (c.notas ? `\n📝 ${c.notas}` : '') +
         `\n${etiquetaZona(ch)}` + etiquetaOferta(ch) + (ch.anuncio ? `\n📢 ${ch.anuncio}` : ''),
         { modalidad: c.modalidad })
       if (r.errorCalendario) await avisarDueno(`⚠️ La cita de ${c.nombre} quedó guardada, pero no pude crearla en Google Calendar: ${r.errorCalendario}`).catch(() => {})
@@ -334,7 +334,7 @@ export function crearManejador (io) {
     }
     if (r.noInteresado) {
       const ch = obtenerChat(jid)
-      await avisarDueno(`🚫 ${ch.nombreReal || ch.nombre || 'Un prospecto'} dijo que no le interesa. No se le harán seguimientos.\nDijo: "${String(r.noInteresado.motivo).slice(0, 140)}"\n📱 wa.me/${tel(ch, jid)}`).catch(() => {})
+      await avisarDueno(`🚫 ${ch.nombreReal || ch.nombre || 'Un prospecto'} dijo que no le interesa. No se le harán seguimientos.\nDijo: "${String(r.noInteresado.motivo).slice(0, 140)}"\n📱 ${numeroBonito(tel(ch, jid))}`).catch(() => {})
       sincronizarEstado(jid, 'not_interested')
       crm = true
     }
@@ -342,7 +342,7 @@ export function crearManejador (io) {
       crearOActualizarChat(jid, { estado: 'humano', resumen: { texto: r.humano.resumen, t: Date.now() } })
       const ch = obtenerChat(jid)
       await avisarZona(ch,
-        `🙋 *Un prospecto necesita que le escribas tú*\n${ch.nombre || ''} — wa.me/${tel(ch, jid)}` +
+        `🙋 *Un prospecto necesita que le escribas tú*\n${ch.nombre || ''} — ${numeroBonito(tel(ch, jid))}` +
         `\nMotivo: ${r.humano.motivo}\nResumen: ${r.humano.resumen}\n${etiquetaZona(ch)}${etiquetaOferta(ch)}`
       )
     }
@@ -429,7 +429,7 @@ export function crearManejador (io) {
         agregarAlHistorial(jid, 'cliente', texto, cuando)
         if (!yaAvisado) {
           await avisarDueno(
-            `💬 *${chat.nombre || 'Un contacto'}* (chat que ya tenías) escribió: "${texto.slice(0, 120)}"\n📱 wa.me/${tel(chat, jid)}` +
+            `💬 *${chat.nombre || 'Un contacto'}* (chat que ya tenías) escribió: "${texto.slice(0, 120)}"\n📱 ${numeroBonito(tel(chat, jid))}` +
             `\nEl bot no le contestó porque ya era un chat tuyo. Si quieres que lo atienda, ábrelo en la app (aparece como "Pide información") y toca "Que conteste el bot".`
           ).catch(e => console.error('Aviso pide info falló', e.message))
         }
@@ -459,7 +459,7 @@ export function crearManejador (io) {
       const ch = obtenerChat(jid)
       if (ajustes.avisarNuevoProspecto !== false) {
         await avisarZona(ch,
-          `📣 *Nuevo prospecto de campaña*\n${ch.nombre || 'Sin nombre'} — wa.me/${tel(ch, jid)}` +
+          `📣 *Nuevo prospecto de campaña*\n${ch.nombre || 'Sin nombre'} — ${numeroBonito(tel(ch, jid))}` +
           `\n📢 ${ch.origen === 'anuncio' ? 'Anuncio: ' + (ch.anuncio || 'sin título') : 'Escribió: "' + texto.slice(0, 80) + '"'}` +
           `\n${etiquetaZona(ch)}${etiquetaOferta(ch)}`
         ).catch(e => console.error('Aviso de nuevo prospecto falló', e.message))
@@ -477,7 +477,7 @@ export function crearManejador (io) {
     const chat = obtenerChat(jid)
     const o = ofertaPorId(chat.oferta)
     if (chat.regalo && chat.regalo.codigo && regalo.codigo && chat.regalo.codigo !== regalo.codigo) {
-      await avisarDueno(`⚠️ ${chat.nombre || 'Un prospecto'} mandó un segundo premio de "${o?.nombre || 'la promoción'}" (${regalo.nombre}, ${regalo.codigo}); ya tenía ${chat.regalo.nombre} (${chat.regalo.codigo}). Se queda el primero.\n📱 wa.me/${tel(chat, jid)}`).catch(() => {})
+      await avisarDueno(`⚠️ ${chat.nombre || 'Un prospecto'} mandó un segundo premio de "${o?.nombre || 'la promoción'}" (${regalo.nombre}, ${regalo.codigo}); ya tenía ${chat.regalo.nombre} (${chat.regalo.codigo}). Se queda el primero.\n📱 ${numeroBonito(tel(chat, jid))}`).catch(() => {})
       return
     }
     if (chat.regalo && (!regalo.codigo || chat.regalo.codigo === regalo.codigo)) return
@@ -488,8 +488,8 @@ export function crearManejador (io) {
     const cita = citasVigentes(jid)[0]
     await avisarZona(ch,
       `🎁 *${ch.nombreReal || ch.nombre || 'Prospecto'} descubrió su regalo*: ${regalo.nombre}${regalo.codigo ? ` (código ${regalo.codigo})` : ''}` +
-      (usadoPor ? `\n⚠️ Ese código ya lo había usado otro número (wa.me/${obtenerChat(usadoPor)?.telefono || digitos(usadoPor)}). Revísalo.` : '') +
-      `\n${cita ? '🗓️ Cita: ' + formatoCita(cita) : 'Todavía sin cita'}\n📱 wa.me/${tel(ch, jid)}`,
+      (usadoPor ? `\n⚠️ Ese código ya lo había usado otro número (${numeroBonito(obtenerChat(usadoPor)?.telefono || digitos(usadoPor))}). Revísalo.` : '') +
+      `\n${cita ? '🗓️ Cita: ' + formatoCita(cita) : 'Todavía sin cita'}\n📱 ${numeroBonito(tel(ch, jid))}`,
       { modalidad: cita?.modalidad }).catch(() => {})
     sincronizarEstado(jid, 'progress')
     crmAhora()
@@ -563,7 +563,7 @@ export function crearManejador (io) {
           ahoraMs >= c.recordatorio.enviado + horasSinRespuesta * 3600_000) {
         actualizarCita(c.id, { recordatorio: { ...c.recordatorio, avisoSinRespuesta: Date.now() } })
         await avisarZona(chat || { zona: c.zona },
-          `⚠️ *${c.nombre} no ha confirmado* su cita de ${formatoCita(c)} (${c.modalidad === 'meet' ? 'Meet' : 'presencial'}).\n📱 wa.me/${c.telefono || digitos(c.chatId)}`,
+          `⚠️ *${c.nombre} no ha confirmado* su cita de ${formatoCita(c)} (${c.modalidad === 'meet' ? 'Meet' : 'presencial'}).\n📱 ${numeroBonito(c.telefono || digitos(c.chatId))}`,
           { modalidad: c.modalidad }).catch(() => {})
       }
     }

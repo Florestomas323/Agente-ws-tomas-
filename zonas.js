@@ -166,3 +166,12 @@ export function ofertaValeEn (oferta, estado) {
   const lista = (oferta?.estados || []).map(codigoEstado).filter(Boolean)
   return !lista.length || !estado || lista.includes(codigoEstado(estado))
 }
+
+/** Número legible para los avisos: 14703104825 → "+1 (470) 310-4825" (otros países: +código y número) */
+export function numeroBonito (numero) {
+  const d = String(numero || '').replace(/\D/g, '')
+  if (!d) return 'número desconocido'
+  if (d.length === 11 && d.startsWith('1')) return `+1 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `+1 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`
+  return '+' + d
+}

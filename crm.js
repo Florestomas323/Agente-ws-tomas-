@@ -5,7 +5,7 @@
 // Todo pasa por una cola guardada en el volumen: si Royal Sales IA no responde, se reintenta
 // solo (1, 2, 5, 15, 30 min… hasta ~1 día) y, si aun así falla, te aviso.
 import { ajustes } from './config.js'
-import { nombreEstado, zonaPorId, hayZonas, ofertaPorId } from './zonas.js'
+import { nombreEstado, zonaPorId, hayZonas, ofertaPorId, numeroBonito } from './zonas.js'
 import { obtenerChat, crearOActualizarChat, colaCrm, encolarCrm, encolarCrmAlFrente, quitarDeColaCrm, actualizarEnColaCrm } from './almacen.js'
 
 const urlBase = () => (process.env.ROYAL_SALES_URL || '').trim().replace(/\/+$/, '')
@@ -188,7 +188,7 @@ export async function procesarColaCrm (avisar) {
         continue
       }
       const intentos = item.intentos + 1
-      const quien = `${chat?.nombreReal || chat?.nombre || ''} (wa.me/${chat?.telefono || ''})`
+      const quien = `${chat?.nombreReal || chat?.nombre || ''} (${numeroBonito(chat?.telefono || '')})`
       if (esPermanente(r.status) || intentos > ESPERAS_MIN.length) {
         quitarDeColaCrm(item.id)
         console.error('CRM ✗ sin reintentos', item.tipo, item.evento || '', item.chatId, r.error)
